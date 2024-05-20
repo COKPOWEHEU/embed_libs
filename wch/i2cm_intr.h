@@ -94,7 +94,7 @@ void i2cm_init(uint32_t f_apb){
   I2C(I2C_NUM)->CTLR2 = 0;
   
   i2cm_internal_apbM = f_apb / 1000000;
-  i2cm_internal_addr = 0;
+  i2cm_internal_addr = 0xFF;
   i2cm_internal_wcnt = 0;
   i2cm_internal_rcnt = 0;
   
@@ -183,7 +183,7 @@ void i2cm_start(uint8_t addr, uint8_t *buf_wr, uint16_t cnt_wr, uint8_t *buf_rd,
 
 int i2cm_isready(){
   if((systick_read32() - i2cm_internal_time) > i2cm_internal_timeout )return I2CM_TIMEOUT;
-  if(i2cm_internal_addr != 0)return I2CM_WAIT;
+  if(i2cm_internal_addr != 0xFF)return I2CM_WAIT;
   if(I2C(I2C_NUM)->STAR2 & I2C_STAR2_BUSY)return I2CM_WAIT;
   return I2CM_READY;
 }
@@ -239,14 +239,14 @@ __attribute__((interrupt))void I2C_handler(I2C_NUM)(void){
         i2c_log("p\r\n");
         I2C(I2C_NUM)->CTLR2 &=~ I2C_CTLR2_ITEVTEN | I2C_CTLR2_ITBUFEN;
         I2C(I2C_NUM)->CTLR1 |= I2C_CTLR1_STOP;
-        i2cm_internal_addr = 0;
+        i2cm_internal_addr = 0xFF;
       }
     }
   }else if(stat & I2C_STAR1_BTF){ 
     i2c_log("b\r\n");
     I2C(I2C_NUM)->CTLR2 &=~ I2C_CTLR2_ITEVTEN | I2C_CTLR2_ITBUFEN;
     I2C(I2C_NUM)->CTLR1 |= I2C_CTLR1_STOP;
-    i2cm_internal_addr = 0;
+    i2cm_internal_addr = 0xFF;
   }//I2C_CTLR2_ITBUFEN
 
   if(stat & I2C_STAR1_SB){
