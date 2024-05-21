@@ -1,0 +1,11 @@
+Debug-board ch32v307
+
+#define YLED	C,4 ,0,GPIO_PP50
+#define RLED	C,5 ,0,GPIO_PP50
+#define GLED	C,13,0,GPIO_PP50
+
+#define UART1_TX A,9 ,1,GPIO_APP50
+#define UART1_RX A,10,1,GPIO_HIZ
+
+#define I2C_SDA		B,11,0,GPIO_AOD50
+#define I2C_SCL		B,10,0,GPIO_AOD50
