@@ -121,11 +121,11 @@ void i2cm_init(uint32_t f_apb){
   I2C(I2C_NUM)->RTR = 1000 * (f_apb/1000000) / 1000 + 1;
   I2C(I2C_NUM)->CKCFGR = res;
 #elif I2C_SPEED == I2CM_400k_16_9
-  uint32_t res = f_apb / (100000*(16+9)); // LO:HI = 16:9
+  uint32_t res = f_apb / (400000*(16+9)); // LO:HI = 16:9
   I2C(I2C_NUM)->RTR = 300 * (f_apb/1000000) / 1000 + 1;
   I2C(I2C_NUM)->CKCFGR = I2C_CKCFGR_FS | I2C_CKCFGR_DUTY | res;
 #elif I2C_SPEED == I2CM_400k_2_1
-  uint32_t res = f_apb / (100000*(2+1)); // LO:HI = 2:1
+  uint32_t res = f_apb / (400000*(2+1)); // LO:HI = 2:1
   I2C(I2C_NUM)->RTR = 300 * (f_apb/1000000) / 1000 + 1;
   I2C(I2C_NUM)->CKCFGR = I2C_CKCFGR_FS | res;
 #else
