@@ -66,8 +66,15 @@ int i2cm_wait();
 #endif
 
 #if I2C_DBG > 1
+  void i2c_uart_b16(uint16_t val){
+    for(uint16_t mask = 0x8000; mask!=0; mask>>=1){
+      if(mask == 0x0080)UART_putc(USART, ' ');
+      if(val & mask)UART_putc(USART, '1'); else UART_putc(USART, '0');
+    }
+    UART_putc(USART, '\t');
+  }
   #define i2c_log(str) UART_puts(USART, str)
-  #define i2c_b16(x) uart_b16(x)
+  #define i2c_b16(x) i2c_uart_b16(x)
 #else
   #define i2c_log(str)
   #define i2c_b16(x) 
@@ -194,8 +201,8 @@ int i2cm_wait(){
 #if I2C_DBG > 0
   if(res == I2CM_TIMEOUT){
     UART_puts(USART, "Timeout ");
-    uart_b16(I2C(I2C_NUM)->STAR1);
-    uart_b16(I2C(I2C_NUM)->STAR2);
+    i2c_b16(I2C(I2C_NUM)->STAR1);
+    i2c_b16(I2C(I2C_NUM)->STAR2);
     UART_puts(USART, "\r\n");
   }
 #endif
@@ -269,8 +276,8 @@ __attribute__((interrupt))void I2C_handler(I2C_NUM)(void){
 __attribute__((interrupt))void I2C_ehandler(I2C_NUM)(void){
   i2cm_sleep(1000000);
   UART_puts(USART, "Err");
-  uart_b16(I2C(I2C_NUM)->STAR1);
-  uart_b16(I2C(I2C_NUM)->STAR2);
+  i2c_b16(I2C(I2C_NUM)->STAR1);
+  i2c_b16(I2C(I2C_NUM)->STAR2);
   UART_puts(USART, "\r\n");
   i2cm_sleep(10000000);
 }

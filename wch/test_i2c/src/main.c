@@ -79,7 +79,7 @@ void uart_x8(uint8_t val){
 
 #define I2C_NUM 2
 #define I2C_SPEED I2CM_400k_16_9
-#define I2C_DBG_PIN B,8,1,GPIO_PP50
+//#define I2C_DBG_PIN B,8,1,GPIO_PP50
 //#define I2C_DBG 0
 
 #define MODE 1
@@ -185,7 +185,7 @@ void test_accel(){
 }
 
 void oled_send(uint8_t *buf, uint16_t count){
-  i2cm_start(ADDR_OLED, buf, count, NULL, 0, 100);
+  i2cm_start(ADDR_OLED, buf, count, NULL, 0, 100*count);
   i2cm_wait();
 }
 
