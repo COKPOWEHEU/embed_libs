@@ -24,6 +24,7 @@ oled_vline(x, y1, y2, color); //vertical line
 while(1){
   ...
   oled_update();
+  if(oled_test_leak())error();
 }
 #endif
 
@@ -79,12 +80,15 @@ while(1){
 #define OLED_CMD_INVERSE	0xA6 // |0-normal, |1-inverse
 #define OLED_CMD_DISP_ON	0xAE
 
-
+//#define OLED_LEAK_TEST
 //OLED_CMD_STARTLINE | 32 + OLED_CMD_COM_SCAN | 0 -> mir_Y
 
 static struct{
   uint8_t cmd;
   uint8_t buf[ OLED_SCR_W*OLED_SCR_H/8 ];
+#ifdef OLED_LEAK_TEST
+  uint8_t reserved[100];
+#endif
 }oled_scrcmd;
 #define oled_screen (oled_scrcmd.buf)
 
@@ -100,9 +104,7 @@ char oled_init(){
   data[0] = 0x00; //OLED command flag
   data[1] = 0xAE;
   oled_send(data, 2);
-  if(i2cm_isready() != I2CM_READY){
-    return 1;
-  }
+  if(i2cm_isready() != I2CM_READY)return 1;
   
   // Set oscillator frequency
   data[1] = OLED_CMD_CLOCK;
@@ -174,6 +176,10 @@ char oled_init(){
   data[1] = OLED_CMD_DISP_ON | 1;
   oled_send(data, 2);
   
+#ifdef OLED_LEAK_TEST
+  for(int i=0; i<sizeof(oled_scrcmd.reserved); i++)oled_scrcmd.reserved[i] = 0;
+#endif
+  
   return 0;
 }
 
@@ -197,8 +203,24 @@ void oled_update(){
   data[3] = data[2] + (OLED_SCR_H/8-1);//CMD22_3;
   oled_send(data, 4);
   oled_scrcmd.cmd = 0x40;
+#ifdef OLED_LEAK_TEST
+  i2cm_start(I2C_ADDR_OLED, (uint8_t*)&oled_scrcmd, sizeof(oled_scrcmd)-sizeof(oled_scrcmd.reserved), NULL, 0, 100);
+#else
   i2cm_start(I2C_ADDR_OLED, (uint8_t*)&oled_scrcmd, sizeof(oled_scrcmd), NULL, 0, 100);
+#endif
 }
+
+#define oled_wait() i2cm_wait()
+#define oled_ready() (i2cm_isready() != I2CM_WAIT)
+
+#ifdef OLED_LEAK_TEST
+  char oled_test_leak(){
+    for(int i=0; i<sizeof(oled_scrcmd.reserved); i++)if(oled_scrcmd.reserved[i] != 0)return 1;
+    return 0;
+  }
+#else
+  #define oled_test_leak() (0)
+#endif
 
 #if (defined OLED_CHARS_ALNUM) || (defined OLED_CHARS_CP1251)
 
@@ -208,7 +230,7 @@ void oled_update(){
 #else
   #define _char_table(i) char_table[i-32]
 #endif
-#include "lcd_chars.h"
+#include "lcd_chars_cp1251.h"
 
 #ifndef OLED_CHARS_ABS_POS
   #define oled_scr_mod(pos, ch) oled_screen[pos] = ch
@@ -325,13 +347,18 @@ void oled_ch4(uint32_t pos, uint8_t dy, char _ch){
   }
 }
 typedef void (*oled_ch_func)(uint32_t pos, uint8_t dy, char _ch);
+uint32_t oled_strpos = 0;
 
-void oled_str(uint8_t x, uint8_t y, uint8_t font, char *str){
+void oled_str(int x, int y, uint8_t font, char *str){
   const oled_ch_func chn[] = {oled_ch1, oled_ch2, oled_ch3, oled_ch4};
   oled_ch_func chx = chn[font-1];
-  uint32_t pos = x + (y/8)*OLED_SCR_W;
+  if((x>=0)&&(y>=0)){
+    oled_strpos = x*8 + (y & ~7)*OLED_SCR_W + (y&7);
+  }
+  uint32_t pos = oled_strpos / 8;
+  uint8_t dy = oled_strpos % 8;
   uint32_t dpos = (CHAR_W+1)*font;
-  uint8_t dy = (y % 8);
+  if( (pos + ((font-1)+(dy!=0))*OLED_SCR_W) > sizeof(oled_screen))return;
   while(str[0]){
     if( (x+dpos) >= OLED_SCR_W)return;
     chx(pos, dy, str[0]);
@@ -339,7 +366,9 @@ void oled_str(uint8_t x, uint8_t y, uint8_t font, char *str){
     x += dpos;
     str++;
   }
+  oled_strpos = pos*8 + dy;
 }
+
 #endif //OLED_CHARS
 
 #ifdef OLED_GRAPHICS
@@ -374,6 +403,7 @@ void oled_rect(int x1, int y1, int x2, int y2, char color){
 void oled_pix(int x, int y, int col){
   uint8_t ym = (1<<y%8);
   int pos = x + (y/8)*OLED_SCR_W;
+  if((x < 0)||(x>=OLED_SCR_W)||(y<0)||(y>OLED_SCR_H))return;
   if(col){
     oled_screen[pos] |= ym;
   }else{
@@ -430,6 +460,9 @@ void oled_line(int x1, int y1, int x2, int y2, int color){
 
 #ifdef OLED_LINES
 void oled_hline(int x1, int x2, int y, char color){
+  if((y<0)||(y>=OLED_SCR_H))return;
+  if(x1 < 0)x1=0;
+  if(x2 >= OLED_SCR_W)x2=OLED_SCR_W-1;
   int pos = x1 + (y/8)*OLED_SCR_W;
   uint32_t mask = (1<<(y%8));
   uint32_t nmask = ~mask;
@@ -444,6 +477,7 @@ void oled_hline(int x1, int x2, int y, char color){
 }
 #ifdef OLED_GRAPHICS
 void oled_vline(int x, int y1, int y2, char color){
+  if((x<0)||(x>=OLED_SCR_W))return;
   int y = y1 & ~7;
   int yend = (y2+8) & ~7;
   if(y < 0)y=0;
@@ -468,6 +502,7 @@ void oled_vline(int x, int y1, int y2, char color){
 }
 #else//OLED_GRAPHICS
 void oled_vline(int x, int y1, int y2, char color){
+  if((x<0)||(x>=OLED_SCR_W))return;
   int y = y1/8;
   int yend = y2/8+1;
   if(y < 0)y=0;

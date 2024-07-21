@@ -91,6 +91,12 @@ void uart_x8(uint8_t val){
   #error
 #endif
 
+#define OLED_MODE OLED_128x32
+//#define OLED_MIR_X
+#define OLED_MIR_Y
+#define OLED_CHARS_CP1251
+#include "oled_ssd1306.h"
+
 int dev_test(uint8_t dev){
   uint8_t buf[5];
   buf[0] = 0;
@@ -184,111 +190,9 @@ void test_accel(){
   UART_puts(USART, "\r");
 }
 
-void oled_send(uint8_t *buf, uint16_t count){
-  i2cm_start(ADDR_OLED, buf, count, NULL, 0, 100*count);
-  i2cm_wait();
-}
-
 void test_oled(){
-  uint8_t data[5];
-  // Set display off
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0xAE;
-  oled_send(data, 2);
-  if(i2cm_isready() != I2CM_READY){
-    UART_puts(USART, "OLED not found\r\n");
-    return;
-  }
-  
-  // Set oscillator frequency
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0xD5;
-  data[2] = 0x80;
-  oled_send(data, 3);
-  
-  // Enable charge pump regulator
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0x8D;
-  data[2] = 0x14;
-  oled_send(data, 3);
-  // Set display start line
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0x40 | 0;
-  oled_send(data, 2);
-  
-  // Set segment remap (поворот дисплея?)
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0xA1;
-  oled_send(data, 2);
-  
-  // Set COM output scan direction (поворот дисплея?)
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0xC8;
-  oled_send(data, 2);
-  
-  // Set COM pins hardware configuration
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0xDA;
-  data[2] = 0x20;//0x12; //TODO найти правильное значение!
-  oled_send(data, 3);
-  
-  // Set MUX ratio
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0xA8;
-  data[2] = 63;
-  oled_send(data, 3);
-  
-  // Set display offset
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0xD3;
-  data[2] = 0;
-  oled_send(data, 3);
-  
-  // Set horizontal addressing mode
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0x20;
-  data[2] = 0x00; //00-horizontal, 01-vertical, 10-page(?)
-  oled_send(data, 3);
-  
-  // Set column address
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0x21;
-  data[2] = 0;
-  data[3] = 127;
-  oled_send(data, 4);
-  
-  // Set page address
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0x22;
-  data[2] = 0; //0
-  data[3] = 3;//3;//7;
-  oled_send(data, 4);
-  
-  // Set contrast
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0x81;
-  data[2] = 0x7F;
-  oled_send(data, 3);
-  // Entire display on
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0xA4;
-  oled_send(data, 2);
-  //Set normal display
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0xA6;
-  oled_send(data, 2);
-  // Set display on
-  data[0] = 0x00; //OLED command flag
-  data[1] = 0xAF;
-  oled_send(data, 2);
-  
-  struct{
-    uint8_t cmdflag;
-    uint8_t buf[128*32/8];
-  }screen;
-  for(int i=0; i<sizeof(screen.buf); i++){
-    screen.buf[i] = i + __TIME_S__;
-  }
-  screen.cmdflag = 0x40;
-  oled_send((uint8_t*)&screen, sizeof(screen));
+  oled_init();
+  oled_str(0, 0, 2, __TIME__);
+  oled_update();
+  oled_wait();
 }
