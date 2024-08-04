@@ -250,13 +250,13 @@ uint8_t* UARTn_func(USART, read)(uint8_t *data, uint32_t len){
     #define UART2_TX A,2 ,1,GPIO_APP50
     #define UART2_RX A,3 ,1,GPIO_HIZ
     #define uart_do_remap() do{ \
-      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO->PCFR1_USART2_REMAP ) | 0*AFIO->PCFR1_USART2_REMAP; \
+      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO_PCFR1_USART2_REMAP ) | 0*AFIO_PCFR1_USART2_REMAP; \
     }while(0)
   #elif USART_REMAP == 1
     #define UART2_TX D,5 ,1,GPIO_APP50
     #define UART2_RX D,6 ,1,GPIO_HIZ
     #define uart_do_remap() do{ \
-      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO->PCFR1_USART2_REMAP ) | 1*AFIO->PCFR1_USART2_REMAP; \
+      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO_PCFR1_USART2_REMAP ) | 1*AFIO_PCFR1_USART2_REMAP; \
     }while(0)
   #else
     #error USART2 remap must be defined as 0 or 1
@@ -268,25 +268,25 @@ uint8_t* UARTn_func(USART, read)(uint8_t *data, uint32_t len){
     #define UART3_TX B,10,1,GPIO_APP50
     #define UART3_RX B,11,1,GPIO_HIZ
     #define uart_do_remap() do{ \
-      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO->PCFR1_USART3_REMAP ) | 0*AFIO->PCFR1_USART3_REMAP_0; \
+      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO_PCFR1_USART3_REMAP ) | 0*AFIO_PCFR1_USART3_REMAP_0; \
     }while(0)
   #elif USART_REMAP == 1
     #define UART3_TX C,10,1,GPIO_APP50
     #define UART3_RX C,11,1,GPIO_HIZ
     #define uart_do_remap() do{ \
-      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO->PCFR1_USART3_REMAP ) | 1*AFIO->PCFR1_USART3_REMAP_0; \
+      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO_PCFR1_USART3_REMAP ) | 1*AFIO_PCFR1_USART3_REMAP_0; \
     }while(0)
   #elif USART_REMAP == 2
     #define UART3_TX A,13,1,GPIO_APP50
     #define UART3_RX A,14,1,GPIO_HIZ
     #define uart_do_remap() do{ \
-      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO->PCFR1_USART3_REMAP ) | 2*AFIO->PCFR1_USART3_REMAP_0; \
+      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO_PCFR1_USART3_REMAP ) | 2*AFIO_PCFR1_USART3_REMAP_0; \
     }while(0)
   #elif USART_REMAP == 3
     #define UART3_TX D,8,1,GPIO_APP50
     #define UART3_RX D,9,1,GPIO_HIZ
     #define uart_do_remap() do{ \
-      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO->PCFR1_USART3_REMAP ) | 3*AFIO->PCFR1_USART3_REMAP_0; \
+      AFIO->PCFR1 = (AFIO->PCFR1 &~AFIO_PCFR1_USART3_REMAP ) | 3*AFIO_PCFR1_USART3_REMAP_0; \
     }while(0)
   #else
     #error USART3 remap must be defined as 0, 1, 2 or 3
