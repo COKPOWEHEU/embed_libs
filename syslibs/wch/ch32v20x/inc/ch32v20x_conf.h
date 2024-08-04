@@ -9,7 +9,7 @@
  *******************************************************************************/
 #ifndef __CH32V20x_CONF_H
 #define __CH32V20x_CONF_H
-/*
+
 #include "ch32v20x_adc.h"
 #include "ch32v20x_bkp.h"
 #include "ch32v20x_can.h"
@@ -28,9 +28,10 @@
 #include "ch32v20x_tim.h"
 #include "ch32v20x_usart.h"
 #include "ch32v20x_wwdg.h"
-#include "ch32v20x_it.h"
+//#include "ch32v20x_it.h"
 #include "ch32v20x_misc.h"
-*/
+#include "ch32v20x_usb.h"
+
 
 #endif /* __CH32V20x_CONF_H */
 
