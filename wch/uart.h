@@ -106,12 +106,13 @@ typedef struct{
 uart_buffer uartN_Dx(USART, rx); //uart1_rx
 uart_buffer uartN_Dx(USART, tx); //uart1_tx
 
-uart_size_t uart_buf_busy(uart_buffer *buf){
+static uart_size_t uart_buf_busy(uart_buffer *buf){
   return ((buf->st - buf->en) & UART_MASK);
 }
+//#define uart_buf_busy(buf) (((buf)->st - (buf)->en) & UART_MASK)
 #define uart_buf_free(buf) (UART_SIZE - uart_buf_busy(buf) - 1)
 
-uint8_t uart_buf_getc(uart_buffer *buf){
+static uint8_t uart_buf_getc(uart_buffer *buf){
   uint8_t res;
   if(uart_buf_busy(buf) == 0)return 0;
   res = buf->arr[buf->en];
@@ -120,14 +121,14 @@ uint8_t uart_buf_getc(uart_buffer *buf){
   return res;
 }
 
-void uart_buf_putc(uart_buffer *buf, uint8_t dat){
+static void uart_buf_putc(uart_buffer *buf, uint8_t dat){
   if(uart_buf_free(buf) < 1)return;
   buf->arr[buf->st]=dat;
   buf->st++;
   buf->st &= UART_MASK;
 }
 
-int32_t uart_buf_str_size(uart_buffer *buf){
+static int32_t uart_buf_str_size(uart_buffer *buf){
   uint32_t en = buf->en;
   uint8_t *arr = (uint8_t*)(buf->arr);
   uint32_t sz = (buf->st - en) & UART_MASK;
@@ -140,7 +141,7 @@ int32_t uart_buf_str_size(uart_buffer *buf){
   return 0;
 }
 
-char *uart_buf_gets(uart_buffer *buf, char *str, uint32_t len){
+static char *uart_buf_gets(uart_buffer *buf, char *str, uint32_t len){
   uint32_t en = buf->en;
   uint8_t *arr = (uint8_t*)(buf->arr);
   uint32_t sz = (buf->st - en) & UART_MASK;
@@ -434,6 +435,13 @@ void UARTn_func(USART, init)(uint16_t brr){
   uartN_Dx(USART,rx).st=0; uartN_Dx(USART,rx).en=0; uartN_Dx(USART,tx).st=0; uartN_Dx(USART,tx).en=0;
   NVIC_EnableIRQ( UART_IRQ(USART) );
 }
+
+#define UART_speed(num, brr) do{UART(USART)->BRR = (brr);}while(0)
+#define UART_parity_enable(num) do{UART(USART)->CTLR1 |= USART_CTLR1_PCE;}while(0)
+#define UART_parity_disable(num) do{UART(USART)->CTLR1 &=~ USART_CTLR1_PCE;}while(0)
+#define UART_parity_even(num) do{UART(USART)->CTLR1 &=~ USART_CTLR1_PS;}while(0)
+#define UART_parity_odd(num) do{UART(USART)->CTLR1 |= USART_CTLR1_PS;}while(0)
+#define UART_wordlen(num, len) do{if(len == 9)UART(USART)->CTLR1 |= USART_CTLR1_M; else UART(USART)->CTLR1 &=~ USART_CTLR1_M;}while(0)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 //             Interrupt
