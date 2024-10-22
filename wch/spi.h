@@ -38,9 +38,6 @@ static inline void SPI_size_16();
   #define SPI_PHASE 0
 #endif
 
-////////////// Hardware SPI /////////////////////////////////////////////////
-#if defined(SPIn)
-
 #if SPIn == 1
   #define SPI_DMA_TX	1,3,do{SPI1->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI1->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
   #define SPI_DMA_RX	1,2,do{SPI1->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI1->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
@@ -51,8 +48,14 @@ static inline void SPI_size_16();
   #define SPI_DMA_TX	1,2,do{SPI3->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI3->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
   #define SPI_DMA_RX	1,1,do{SPI3->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI3->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
 #else
-  #error wrong SPIn (SPI number)
+  #ifdef SPIn
+    #error wrong SPIn (SPI number)
+  #endif
 #endif
+
+#ifndef SPI_DECLARATIONS
+////////////// Hardware SPI /////////////////////////////////////////////////
+#if defined(SPIn)
 
 #if (SPI_SPEED_DIV == 2)
   #define SPI_BRR (0*SPI_CTLR1_BR_0)
@@ -210,7 +213,18 @@ uint8_t SPI_ready(){
   return 1;
 }
 void SPI_wait(){}
+void SPI_disable(){}
+void SPI_enable(){}
 
-#endif
+#endif //hardware/software SPI
+
+#else //SPI_DECLARATIONS
+
+uint8_t SPI_ready();
+void SPI_wait();
+void SPI_disable();
+void SPI_enable();
+
+#endif //SPI_DECLARATIONS
 
 #endif
