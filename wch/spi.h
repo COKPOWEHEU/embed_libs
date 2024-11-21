@@ -1,6 +1,5 @@
-#ifndef __SPI_H__
-#define __SPI_H__
-
+//#ifndef __SPI_H__
+//#define __SPI_H__
 
 #if 0==1
 #define SPIn			1 //if macro SPIn not defined -> software SPI
@@ -11,6 +10,7 @@
 //SPI_soft_speed 123  //(software SPI only!) Delay between bits. For super-slow SPI
 #define SPI_LSBFIRST	0
 #define SPI_PHASE		0
+#define SPI_MODE		SPI_MASTER
 
 static inline void SPI_init();
 static uint16_t SPI_send(uint16_t data);
@@ -22,12 +22,41 @@ static inline void SPI_size_16();
 
 #endif
 
+#define SPI_MASTER	1
+#define SPI_SLAVE	0
+
+#define _SPI_NAME(num) SPI ## num
+#define SPI_NAME(num) _SPI_NAME(num)
+
+#define SPI_DATA(num) (SPI_NAME(num)->DATAR)
+
+#define _SPI_init(spi) SPI ## spi ## _init()
+#define _SPI_ready(spi) SPI ## spi ## _ready()
+#define _SPI_wait(spi) SPI ## spi ## _wait()
+#define _SPI_enable(spi) SPI ## spi ## _enable()
+#define _SPI_disable(spi) SPI ## spi ## _disable()
+#define _SPI_size_8(spi) SPI ## spi ## _size_8()
+#define _SPI_size_16(spi) SPI ## spi ## _size_16()
+#define _SPI_send(spi, data) SPI ## spi ## _send(data)
+#define _SPI_exch(spi, data) SPI ## spi ## _exch(data)
+#define _SPI_DMA_TX(spi) SPI ## spi ## _DMA_TX
+#define _SPI_DMA_RX(spi) SPI ## spi ## _DMA_RX
+
+
+#define SPI_init(spi) _SPI_init(spi)
+#define SPI_ready(spi) _SPI_ready(spi)
+#define SPI_wait(spi) _SPI_wait(spi)
+#define SPI_enable(spi) _SPI_enable(spi)
+#define SPI_disable(spi) _SPI_disable(spi)
+#define SPI_size_8(spi) _SPI_size_8(spi)
+#define SPI_size_16(spi) _SPI_size_16(spi)
+#define SPI_send(spi, data) _SPI_send(spi, data)
+#define SPI_exch(spi, data) _SPI_exch(spi, data)
+#define SPI_DMA_TX(spi) _SPI_DMA_TX(spi)
+#define SPI_DMA_RX(spi) _SPI_DMA_RX(spi)
+
 #ifndef SPI_SCK
   #error not found '#define SPI_SCK P,n,a' (P=port, n=pin number, a=active level)
-#endif
-#ifndef SPI_SPEED_DIV
-  #warning SPI_SPEED_DIV not defined; using slowest (1:256)
-  #define SPI_SPEED_DIV 256
 #endif
 #ifndef SPI_LSBFIRST
   #warning SPI_LSBFIRST not defined; using default (0)
@@ -38,25 +67,30 @@ static inline void SPI_size_16();
   #define SPI_PHASE 0
 #endif
 
-#if SPIn == 1
-  #define SPI_DMA_TX	1,3,do{SPI1->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI1->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
-  #define SPI_DMA_RX	1,2,do{SPI1->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI1->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
-#elif SPIn == 2
-  #define SPI_DMA_TX	1,5,do{SPI2->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI2->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
-  #define SPI_DMA_RX	1,4,do{SPI2->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI2->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
-#elif SPIn == 3
-  #define SPI_DMA_TX	1,2,do{SPI3->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI3->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
-  #define SPI_DMA_RX	1,1,do{SPI3->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI3->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
-#else
-  #ifdef SPIn
-    #error wrong SPIn (SPI number)
-  #endif
+#define _SPI_func(n, func) SPI ## n ## _ ## func
+#define SPI_func(n, func) _SPI_func(n, func)
+
+#ifndef SPI1_DMA_TX
+  #define SPI1_DMA_TX	1,3,do{SPI1->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI1->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
+  #define SPI1_DMA_RX	1,2,do{SPI1->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI1->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
+#endif
+#ifndef SPI2_DMA_TX
+  #define SPI2_DMA_TX	1,5,do{SPI2->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI2->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
+  #define SPI2_DMA_RX	1,4,do{SPI2->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI2->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
+#endif
+#ifndef SPI3_DMA_TX
+  #define SPI3_DMA_TX	1,2,do{SPI3->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI3->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
+  #define SPI3_DMA_RX	1,1,do{SPI3->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI3->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
 #endif
 
 #ifndef SPI_DECLARATIONS
 ////////////// Hardware SPI /////////////////////////////////////////////////
-#if defined(SPIn)
+#if defined(SPIn) && (SPIn == 1 || SPIn == 2 || SPIn == 3)
 
+#ifndef SPI_SPEED_DIV
+  #warning SPI_SPEED_DIV not defined; using slowest (1:256)
+  #define SPI_SPEED_DIV 256
+#endif
 #if (SPI_SPEED_DIV == 2)
   #define SPI_BRR (0*SPI_CTLR1_BR_0)
 #elif (SPI_SPEED_DIV == 4)
@@ -77,40 +111,65 @@ static inline void SPI_size_16();
   #error SPI: wrong SPI_SPEED_DIV macro
 #endif
 
-#define __SPI_NAME(num) SPI ## num
-#define _SPI_NAME(num) __SPI_NAME(num)
-#define CurSPI _SPI_NAME(SPIn)
-
-#define CR1_def (SPI_CTLR1_MSTR | SPI_BRR | SPI_CTLR1_SPE | SPI_CTLR1_SSI | SPI_CTLR1_SSM | \
+#define CR1_mstr_def (SPI_CTLR1_MSTR | SPI_BRR | SPI_CTLR1_SPE | SPI_CTLR1_SSI | SPI_CTLR1_SSM | \
                 (SPI_CTLR1_LSBFIRST * (SPI_LSBFIRST)) |\
                 (SPI_CTLR1_CPHA * (SPI_PHASE)) | \
                 (SPI_CTLR1_CPOL * (!marg3(SPI_SCK))))
 
-uint8_t SPI_ready();
-void SPI_wait();
+#define CR1_sla_def (SPI_BRR | SPI_CTLR1_SPE | SPI_CTLR1_SSM | \
+                (SPI_CTLR1_LSBFIRST * (SPI_LSBFIRST)) |\
+                (SPI_CTLR1_CPHA * (SPI_PHASE)) | \
+                (SPI_CTLR1_CPOL * (!marg3(SPI_SCK))))
 
-static inline void SPI_size_8(){
-  SPI_wait();
-  CurSPI->CTLR1 &=~ SPI_CTLR1_SPE;
-  CurSPI->CTLR1 &=~ SPI_CTLR1_DFF;
-  CurSPI->CTLR1 |= SPI_CTLR1_SPE;
+#if SPI_MODE == SPI_MASTER
+  #define _SPI_rdy() (!(SPI_NAME(SPIn)->STATR & SPI_STATR_BSY))
+#else
+  #define _SPI_rdy() (SPI_NAME(SPIn)->STATR & SPI_STATR_RXNE)
+#endif
+
+uint8_t SPI_func(SPIn, ready)(){
+  return _SPI_rdy();
 }
 
-static inline void SPI_size_16(){
-  SPI_wait();
-  CurSPI->CTLR1 &=~ SPI_CTLR1_SPE;
-  CurSPI->CTLR1 |= SPI_CTLR1_DFF;
-  CurSPI->CTLR1 |= SPI_CTLR1_SPE;
+void SPI_func(SPIn, wait)(){
+  while( !_SPI_rdy() ){}
 }
 
-static inline void SPI_init(){
+void SPI_func(SPIn, disable)(){
+  SPI_wait(SPIn);
+  SPI_NAME(SPIn)->CTLR1 &=~ SPI_CTLR1_SPE;
+}
+
+void SPI_func(SPIn, enable)(){
+  SPI_wait(SPIn);
+  SPI_NAME(SPIn)->CTLR1 |= SPI_CTLR1_SPE;
+}
+
+void SPI_func(SPIn, size_8)(){
+  //SPI_wait(SPIn);
+  SPI_NAME(SPIn)->CTLR1 &=~ SPI_CTLR1_SPE;
+  SPI_NAME(SPIn)->CTLR1 &=~ SPI_CTLR1_DFF;
+  SPI_NAME(SPIn)->CTLR1 |= SPI_CTLR1_SPE;
+}
+
+void SPI_func(SPIn, size_16)(){
+  //SPI_wait(SPIn);
+  SPI_NAME(SPIn)->CTLR1 &=~ SPI_CTLR1_SPE;
+  SPI_NAME(SPIn)->CTLR1 |= SPI_CTLR1_DFF;
+  SPI_NAME(SPIn)->CTLR1 |= SPI_CTLR1_SPE;
+}
+
+void SPI_func(SPIn, init)(){
 #if SPIn == 1
   RCC->APB2PCENR |= RCC_SPI1EN;
 #elif SPIn == 2
-  RCC->APB1PCENR |= RCC_SPI2EN;
+  RCC->APB1PCENR |= (1<<14); //RCC_SPI2EN;
 #elif SPIn == 3
-  RCC->APB1PCENR |= RCC_SPI3EN;
+  RCC->APB1PCENR |= (1<<15); //RCC_SPI3EN;
 #endif
+  
+#if SPI_MODE == SPI_MASTER
+  SPI_NAME(SPIn)->CTLR1 = 0;
 #ifdef SPI_MISO
   GPIO_manual(SPI_MISO, GPIO_HIZ);
 #endif
@@ -121,65 +180,96 @@ static inline void SPI_init(){
   GPIO_manual(SPI_SCK, GPIO_APP50);
   GPO_OFF(SPI_SCK);
 
-  CurSPI->CTLR1 = 0;
-  CurSPI->CTLR1 = CR1_def;
-#if (SPI_SPEED_DIV == 2) && (defined SPI_MISO)
-  CurSPI->HSCR = 1;
+  SPI_NAME(SPIn)->CTLR1 = CR1_mstr_def;
+  
+#else //SPI_MODE == SPI_SLAVE
+  
+  SPI_NAME(SPIn)->CTLR1 = 0;
+#ifdef SPI_MISO
+  GPIO_manual(SPI_MISO, GPIO_APP50);
+  GPO_OFF(SPI_MISO);
+#endif
+#ifdef SPI_MOSI
+  GPIO_manual(SPI_MOSI, GPIO_HIZ);
+#endif
+  GPIO_manual(SPI_SCK, GPIO_HIZ);
+  SPI_NAME(SPIn)->CTLR1 = CR1_sla_def;
+#endif
+  
+#if (SPI_SPEED_DIV == 2)
+  //SPI_NAME(SPIn)->HSCR = 1;
+  SPI_NAME(SPIn)->HSCR = 0b101;
 #endif
 }
 
-void SPI_disable(){
-  SPI_wait();
-  CurSPI->CTLR1 &=~ SPI_CTLR1_SPE;
-}
-
-void SPI_enable(){
-  SPI_wait();
-  CurSPI->CTLR1 |= SPI_CTLR1_SPE;
-}
-
-uint16_t SPI_send(uint16_t data){
+uint16_t SPI_func(SPIn, send)(uint16_t data){
   uint16_t res;
-  SPI_wait();
-  res = CurSPI->DATAR;
-  CurSPI->DATAR = data;
+  SPI_wait(SPIn);
+  res = SPI_NAME(SPIn)->DATAR;
+  SPI_NAME(SPIn)->DATAR = data;
   return res;
 }
 
-uint8_t SPI_ready(){
-  return !(CurSPI->STATR & SPI_STATR_BSY);
-}
-
-void SPI_wait(){
-  while( CurSPI->STATR & SPI_STATR_BSY ){}
+uint16_t SPI_func(SPIn, exch)(uint16_t data){
+  SPI_NAME(SPIn)->DATAR = data;
+  SPI_wait(SPIn);
+  return SPI_NAME(SPIn)->DATAR;
 }
 
 #undef SPI_BRR
-#undef GPIO_MODE
-//#undef __SPI_NAME
-//#undef _SPI_NAME
-//#undef CurSPI
-#undef CR1_def
+#undef CR1_mstr_def
+#undef CR1_sla_def
+#undef SPI_MISO
+#undef SPI_MOSI
+#undef SPI_SCK
+#undef SPI_SPEED_DIV
+#undef SPI_LSBFIRST
+#undef SPI_PHASE
+#undef SPI_MODE
+#undef _SPI_rdy
 
 #else
 //////////////// Software SPI /////////////////////////////////////////
 #warning Software SPI
 
-static uint8_t SPI_data_size = 8;
-
-#ifndef SPI_soft_speed
+#ifndef SPI_SPEED_DIV
+  #ifndef SPI_soft_speed
+    #warning SPI_SPEED_DIV not defined; using slowest (1:256)
+    #define SPI_SPEED_DIV 256
+  #endif
+#else
   #define SPI_soft_speed (SPI_SPEED_DIV*4)
 #endif
 
-static inline void SPI_size_8(){SPI_data_size = 8;}
-static inline void SPI_size_16(){SPI_data_size=16;}
+#if SPI_MODE == SPI_SLAVE
+  #error Software SPI not implemented yet
+#endif
+#if SPI_LSBFIRST != 0
+  #error Software SPI does not support LSBFIRST yet
+#endif
+#if SPI_PHASE != 0
+  #error Software SPI does not support SPI_PHASE yet
+#endif
 
-static void SPI_sleep(){
+#define SPI_intr_var(SPIn, name) SPI ## SPIn ## _intr_var_ ## name
+
+uint8_t SPI_intr_var(SPIn, size) = 8;
+
+static void SPI_func(SPIn, sleep)(){
   uint32_t time = SPI_soft_speed;
   while(time--)asm volatile("nop");
 }
 
-static inline void SPI_init(){
+
+uint8_t SPI_func(SPIn, ready)(){ return 1;}
+void SPI_func(SPIn, wait)(){}
+void SPI_func(SPIn, disable)(){}
+void SPI_func(SPIn, enable)(){}
+
+void SPI_func(SPIn, size_8)(){SPI_intr_var(SPIn, size) = 8;}
+void SPI_func(SPIn, size_16)(){SPI_intr_var(SPIn, size) = 16;}
+
+void SPI_func(SPIn, init)(){
 #ifdef SPI_MISO
   GPIO_manual(SPI_MISO, GPIO_HIZ);
 #endif
@@ -191,40 +281,71 @@ static inline void SPI_init(){
   GPO_OFF(SPI_SCK);
 }
 
-static uint16_t SPI_send(uint16_t data){
-  if(SPI_data_size == 8)data <<= 8;
-  for(uint8_t i=0; i<SPI_data_size; i++){
+uint16_t SPI_func(SPIn, send)(uint16_t data){
+  if(SPI_intr_var(SPIn, size) == 8)data <<= 8;
+  for(int i=0; i<SPI_intr_var(SPIn, size); i++){
     #ifdef SPI_MOSI
     if(data & 0x8000)GPO_ON(SPI_MOSI); else GPO_OFF(SPI_MOSI);
     #endif
-    SPI_sleep();
+    SPI_func(SPIn, sleep)();
     GPO_ON(SPI_SCK);
     data<<=1;
     #ifdef SPI_MISO
     if(GPI_ON(SPI_MISO))data |= (1<<0);
     #endif
-    SPI_sleep();
+    SPI_func(SPIn, sleep)();
     GPO_OFF(SPI_SCK);
   }
   return data;
 }
 
-uint8_t SPI_ready(){
-  return 1;
+uint16_t SPI_func(SPIn, exch)(uint16_t data){
+  return SPI_func(SPIn, send)(data);
 }
-void SPI_wait(){}
-void SPI_disable(){}
-void SPI_enable(){}
+
+#undef SPI_MISO
+#undef SPI_MOSI
+#undef SPI_SCK
+#undef SPI_SPEED_DIV
+#undef SPI_soft_speed
+#undef SPI_LSBFIRST
+#undef SPI_PHASE
+#undef SPI_MODE
 
 #endif //hardware/software SPI
 
+
 #else //SPI_DECLARATIONS
 
-uint8_t SPI_ready();
-void SPI_wait();
-void SPI_disable();
-void SPI_enable();
+void SPI_func(SPIn, init)();
+uint8_t SPI_func(SPIn, ready)();
+void SPI_func(SPIn, wait)();
+void SPI_func(SPIn, disable)();
+void SPI_func(SPIn, enable)();
+void SPI_func(SPIn, size_8)();
+void SPI_func(SPIn, size_16)();
+uint16_t SPI_func(SPIn, send)(uint16_t data);
+uint16_t SPI_func(SPIn, exch)(uint16_t data);
 
 #endif //SPI_DECLARATIONS
+
+//#endif
+
+#if 1==0
+
+#define SPIn			1
+#define SPI_MISO		A,6,1
+#define SPI_MOSI		A,7,1
+#define SPI_SCK			A,5,1
+
+#define SPIn			2
+#define SPI_MISO		B,14,1
+#define SPI_MOSI		B,15,1
+#define SPI_SCK			B,13,1
+
+#define SPIn			3
+#define SPI_MISO		B,4,1
+#define SPI_MOSI		B,5,1
+#define SPI_SCK			B,3,1
 
 #endif
