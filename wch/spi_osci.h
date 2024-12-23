@@ -215,13 +215,24 @@ void spiosci_init(){
 #endif
 
 uint16_t spiosci_count(){
-  return SPIOSCI_SZ - DMA_CH(SPI_DMA_RX(ch1))->CNTR;
+  uint16_t sz = SPIOSCI_SZ - DMA_CH(SPI_DMA_RX(ch1))->CNTR;
+#if ch2 != 0
+  uint16_t sz2 = SPIOSCI_SZ - DMA_CH(SPI_DMA_RX(ch2))->CNTR;
+  if(sz2 < sz)sz = sz2;
+  #if ch3 != 0
+    uint16_t sz3 = SPIOSCI_SZ - DMA_CH(SPI_DMA_RX(ch3))->CNTR;
+    if(sz3 < sz)sz = sz3;
+  #endif
+#endif
+  return sz;
+//  return SPIOSCI_SZ - DMA_CH(SPI_DMA_RX(ch1))->CNTR;
 }
 
 typedef void (*spiosci_outfunc_t)(uint8_t chan1, uint8_t chan2, uint8_t chan3);
 
 void spiosci_out(spiosci_outfunc_t outfunc){
-  uint16_t cnt = SPIOSCI_SZ - DMA_CH(SPI_DMA_RX(ch1))->CNTR;
+  //uint16_t cnt = SPIOSCI_SZ - DMA_CH(SPI_DMA_RX(ch1))->CNTR;
+  uint16_t cnt = spiosci_count();
   for(uint16_t i=0; i<cnt; i++){
     outfunc( chbuf1(i), chbuf2(i), chbuf3(i) );
     //outfunc( spiosci_buf[0][i], 0, 0 );
