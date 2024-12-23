@@ -40,6 +40,8 @@
 #define DMA_PRI_HIGH	0b10
 #define DMA_PRI_VHIGH	0b11
   
+#define DMA_PRI_M2M		0b100
+  
 #define DMA_F_ERR	TE
 #define DMA_F_HALF	HT
 #define DMA_F_FULL	TC
