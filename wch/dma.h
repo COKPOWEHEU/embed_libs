@@ -46,6 +46,10 @@
 #define DMA_F_HALF	HT
 #define DMA_F_FULL	TC
 #define DMA_F_GLOBAL	G
+  
+#ifndef RCC_DMA2EN //Очередные костыли. Китайцы забыли прописать этот бит в своих хедерах
+  #define RCC_DMA2EN	(1<<1)
+#endif
 
 #define _DMAx(n, c, ...) DMA ## n
 #define _DMA_CH(n, c, ...) DMA ## n ## _Channel ## c
@@ -95,26 +99,30 @@
   do{ \
     _DMA_CH(dma)->PADDR = (uint32_t)(src); \
     _DMA_CH(dma)->MADDR = (uint32_t)(dst); \
-    _DMA_CH(dma)->CNTR = (cnt); \
+    _DMA_CH(dma)->CNTR  = (uint16_t)(cnt); \
   }while(0)
 #define dma_cfg_mem(dma, dstsize, dstinc, srcsize, srcinc, circ, prior) do{ \
-    _DMA_CH(dma)->CFGR &=~ ((0b11*DMA_CFGR1_PL_0) | (0b11*DMA_CFGR1_MSIZE_0) | (0b11*DMA_CFGR1_PSIZE_0) | DMA_CFGR1_MINC | DMA_CFGR1_PINC | DMA_CFGR1_CIRC); \
-    _DMA_CH(dma)->CFGR |= (prior*DMA_CFGR1_PL_0) | (SIZE2BITS(dstsize)*DMA_CFGR1_MSIZE_0) | (SIZE2BITS(srcsize)*DMA_CFGR1_PSIZE_0) | (dstinc*DMA_CFGR1_MINC) | (srcinc*DMA_CFGR1_PINC) | (circ*DMA_CFGR1_CIRC); \
-    _DMA_CH(dma)->CFGR &=~ DMA_CFGR1_DIR; \
+    uint32_t temp = _DMA_CH(dma)->CFGR; \
+    temp &=~ ((0b11*DMA_CFGR1_PL_0) | (0b11*DMA_CFGR1_MSIZE_0) | (0b11*DMA_CFGR1_PSIZE_0) | DMA_CFGR1_MINC | DMA_CFGR1_PINC | DMA_CFGR1_CIRC); \
+    temp |= (prior*DMA_CFGR1_PL_0) | (SIZE2BITS(dstsize)*DMA_CFGR1_MSIZE_0) | (SIZE2BITS(srcsize)*DMA_CFGR1_PSIZE_0) | (dstinc*DMA_CFGR1_MINC) | (srcinc*DMA_CFGR1_PINC) | (circ*DMA_CFGR1_CIRC); \
+    temp &=~ DMA_CFGR1_DIR; \
+    _DMA_CH(dma)->CFGR = temp; \
   }while(0)
   
 #else
   
-  #define dma_cfg_io(dma, dst, src, cnt) \
+#define dma_cfg_io(dma, dst, src, cnt) \
   do{ \
     _DMA_CH(dma)->PADDR = (uint32_t)(dst); \
     _DMA_CH(dma)->MADDR = (uint32_t)(src); \
-    _DMA_CH(dma)->CNTR = (cnt); \
+    _DMA_CH(dma)->CNTR  = (uint16_t)(cnt); \
   }while(0)
 #define dma_cfg_mem(dma, dstsize, dstinc, srcsize, srcinc, circ, prior) do{ \
-    _DMA_CH(dma)->CFGR &=~ ((0b11*DMA_CFGR1_PL_0) | (0b11*DMA_CFGR1_MSIZE_0) | (0b11*DMA_CFGR1_PSIZE_0) | DMA_CFGR1_MINC | DMA_CFGR1_PINC | DMA_CFGR1_CIRC); \
-    _DMA_CH(dma)->CFGR |= (prior*DMA_CFGR1_PL_0) | (SIZE2BITS(srcsize)*DMA_CFGR1_MSIZE_0) | (SIZE2BITS(dstsize)*DMA_CFGR1_PSIZE_0) | (srcinc*DMA_CFGR1_MINC) | (dstinc*DMA_CFGR1_PINC) | (circ*DMA_CFGR1_CIRC); \
-    _DMA_CH(dma)->CFGR |= DMA_CFGR1_DIR;
+    uint32_t temp = _DMA_CH(dma)->CFGR; \
+    temp &=~ ((0b11*DMA_CFGR1_PL_0) | (0b11*DMA_CFGR1_MSIZE_0) | (0b11*DMA_CFGR1_PSIZE_0) | DMA_CFGR1_MINC | DMA_CFGR1_PINC | DMA_CFGR1_CIRC); \
+    temp |= (prior*DMA_CFGR1_PL_0) | (SIZE2BITS(srcsize)*DMA_CFGR1_MSIZE_0) | (SIZE2BITS(dstsize)*DMA_CFGR1_PSIZE_0) | (srcinc*DMA_CFGR1_MINC) | (dstinc*DMA_CFGR1_PINC) | (circ*DMA_CFGR1_CIRC); \
+    temp |= DMA_CFGR1_DIR;
+    _DMA_CH(dma)->CFGR = temp; \
   }while(0)
   
 #endif
