@@ -6,6 +6,7 @@
 #define SPI_MISO		B,4,1 //may be undefined
 #define SPI_MOSI		B,5,1 //may be undefined
 #define SPI_SCK			B,3,1
+//#define SPI_REMAP
 #define SPI_SPEED_DIV	2 // F_APBx / 2..256
 //SPI_soft_speed 123  //(software SPI only!) Delay between bits. For super-slow SPI
 #define SPI_LSBFIRST	0
@@ -66,6 +67,17 @@ static inline void SPI_size_16();
   #warning SPI_PHASE not defined; using default (0)
   #define SPI_PHASE 0
 #endif
+#if !defined(SPI_MODE) || !( (SPI_MODE == SPI_MASTER) || (SPI_MODE == SPI_SLAVE) )
+  #if SPIn == 1
+    #error define SPI_MODE as SPI_MASTER or SPI_SLAVE in SPI1
+  #elif SPIn == 2
+    #error define SPI_MODE as SPI_MASTER or SPI_SLAVE in SPI2
+  #elif SPIn == 3
+    #error define SPI_MODE as SPI_MASTER or SPI_SLAVE in SPI3
+  #else
+    #error define SPI_MODE as SPI_MASTER or SPI_SLAVE in software SPI
+  #endif
+#endif
 
 #define _SPI_func(n, func) SPI ## n ## _ ## func
 #define SPI_func(n, func) _SPI_func(n, func)
@@ -79,8 +91,8 @@ static inline void SPI_size_16();
   #define SPI2_DMA_RX	1,4,do{SPI2->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI2->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
 #endif
 #ifndef SPI3_DMA_TX
-  #define SPI3_DMA_TX	1,2,do{SPI3->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI3->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
-  #define SPI3_DMA_RX	1,1,do{SPI3->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI3->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
+  #define SPI3_DMA_TX	2,2,do{SPI3->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI3->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
+  #define SPI3_DMA_RX	2,1,do{SPI3->CTLR2 |= SPI_CTLR2_RXDMAEN;}while(0),do{SPI3->CTLR2 &=~ SPI_CTLR2_RXDMAEN;}while(0)
 #endif
 
 #ifndef SPI_DECLARATIONS
@@ -109,6 +121,26 @@ static inline void SPI_size_16();
   #define SPI_BRR (7*SPI_CTLR1_BR_0)
 #else
   #error SPI: wrong SPI_SPEED_DIV macro
+#endif
+
+#if SPIn == 1
+  #ifndef SPI_REMAP
+    #define SPI_do_remap() do{AFIO->PCFR1 &=~AFIO_PCFR1_SPI1_REMAP; }while(0)
+  #else
+    #define SPI_do_remap() do{AFIO->PCFR1 |= AFIO_PCFR1_SPI1_REMAP; }while(0)
+  #endif
+#elif SPIn == 2
+  #ifndef SPI_REMAP
+    #define SPI_do_remap() do{}while(0)
+  #else
+    #define SPI_do_remap() do{}while(0)
+  #endif
+#elif SPIn == 3
+  #ifndef SPI_REMAP
+    #define SPI_do_remap() do{AFIO->PCFR1 &=~(1<<28);}while(0)
+  #else
+    #define SPI_do_remap() do{AFIO->PCFR1 |= (1<<28);}while(0)
+  #endif
 #endif
 
 #define CR1_mstr_def (SPI_CTLR1_MSTR | SPI_BRR | SPI_CTLR1_SPE | SPI_CTLR1_SSI | SPI_CTLR1_SSM | \
@@ -168,8 +200,10 @@ void SPI_func(SPIn, init)(){
   RCC->APB1PCENR |= (1<<15); //RCC_SPI3EN;
 #endif
   
-#if SPI_MODE == SPI_MASTER
   SPI_NAME(SPIn)->CTLR1 = 0;
+  SPI_do_remap();
+  
+#if SPI_MODE == SPI_MASTER
 #ifdef SPI_MISO
   GPIO_manual(SPI_MISO, GPIO_HIZ);
 #endif
@@ -184,7 +218,6 @@ void SPI_func(SPIn, init)(){
   
 #else //SPI_MODE == SPI_SLAVE
   
-  SPI_NAME(SPIn)->CTLR1 = 0;
 #ifdef SPI_MISO
   GPIO_manual(SPI_MISO, GPIO_APP50);
   GPO_OFF(SPI_MISO);
@@ -227,6 +260,9 @@ uint16_t SPI_func(SPIn, exch)(uint16_t data){
 #undef SPI_PHASE
 #undef SPI_MODE
 #undef _SPI_rdy
+#undef _SPI_do_remap
+#undef SPI_do_remap
+#undef SPI_REMAP
 
 #else
 //////////////// Software SPI /////////////////////////////////////////
@@ -337,6 +373,10 @@ uint16_t SPI_func(SPIn, exch)(uint16_t data);
 #define SPI_MISO		A,6,1
 #define SPI_MOSI		A,7,1
 #define SPI_SCK			A,5,1
+//Remap
+#define SPI_MISO		B,4,1
+#define SPI_MOSI		B,5,1
+#define SPI_SCK			B,3,1
 
 #define SPIn			2
 #define SPI_MISO		B,14,1
@@ -347,5 +387,9 @@ uint16_t SPI_func(SPIn, exch)(uint16_t data);
 #define SPI_MISO		B,4,1
 #define SPI_MOSI		B,5,1
 #define SPI_SCK			B,3,1
+//Remap
+#define SPI_MISO		C,11,1
+#define SPI_MOSI		C,12,1
+#define SPI_SCK			C,10,1
 
 #endif
