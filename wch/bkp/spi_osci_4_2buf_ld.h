@@ -1,24 +1,29 @@
 /*
 В CH32 проблема с большими буферами: DMA1 не умеет пересекать границу 64к.
-В данной версии библиотеки рекомендуется назначить хотя бы один SPI на SPI3
-поскольку он висит на DMA2, которое границу пересекать умеет. Какой именно
-канал будет на SPI3 - безразлично, библиотека сама подберет.
+В данной версии библиотеки в ld-файл добавлена секция .spi_bufdata
+
+	.spi_bufdata  0x20010000-SIZEOF(.spi_bufdata)/2 (NOLOAD):
+	{
+      *(.spi_bufdata)
+    } >RAM
+    
+За счет этого ДВА (и только два) буфера располагаются по обе стороны границы, не пересекая ее.
+Ограничение на размер ~63000 байт на каждый
 */
 
 #if 1==0
 //1: clock from MASTER-SPI
-  #define SPIOSCI		3,-1,2 // SPI3=master, SPI1(remap)=slave, SPI2=slave
+  #define SPIOSCI		3,1,2 // SPI3=master, SPI1=slave, SPI2=slave
   #define SPIOSCI_SPEED 2 // F_APB( SPI3 ) / 2
   #define SPIOSCI_SZ	1000
   #include "spi_osci.h"
   //WARNING: inputs: SPI3-MISO, other-MOSI
 //2: clock from Timer
-  #define SPIOSCI			3,1,-2 // all SPI = slaves (SPI2 - remap)
+  #define SPIOSCI			3,1,2 // all SPI = slaves
   #define SPIOSCI_TIMER		10,1,TIMO_PWM_NINV | TIMO_NEG | TIMO_REMAP1 //TIM10.1N, remap1
   #define SPIOSCI_TIMOUT	A,5,1
   #define SPIOSCI_SPEED 	2 // F_APB(Tim10) / 2
   #define SPIOSCI_SZ		1000
-  #define SPIOSCI_LOGSIZE	1000 // (may be undefined) text buffer to comments as ch4 UART text string
   #include "spi_osci.h"
   //WARNING: inputs: all - MOSI
 //Common:
@@ -50,12 +55,6 @@
   #define SPI_MISO		A,6,1
   #define SPI_MOSI		A,7,1
   #define SPI_SCK		A,5,1
-#elif __SPIOSCI_PINS__ == -1
-  #define SPIn			1
-  #define SPI_REMAP
-  #define SPI_MISO		B,4,1
-  #define SPI_MOSI		B,5,1
-  #define SPI_SCK		B,3,1
 #elif __SPIOSCI_PINS__ == 2
   #define SPIn			2
   #define SPI_MISO		B,14,1
@@ -66,14 +65,9 @@
   #define SPI_MISO		B,4,1
   #define SPI_MOSI		B,5,1
   #define SPI_SCK		B,3,1
-#elif __SPIOSCI_PINS__ == -3
-  #define SPIn			3
-  #define SPI_REMAP
-  #define SPI_MISO		C,11,1
-  #define SPI_MOSI		C,12,1
-  #define SPI_SCK		C,10,1
+#error
 #else
-  #error SPIOSCI does not support software SPI
+  #define SPIn			0
 #endif
 #undef __SPIOSCI_PINS__
 #else
@@ -114,20 +108,15 @@
 #define SPI_SPEED_DIV	SPIOSCI_SPEED_DIV
 #define SPI_LSBFIRST	1
 #define SPI_PHASE		0
-#undef SPI_MISO
-#define SPI_MODE		SPI_SLAVE
+  #ifndef SPIOSCI_TIMER
+    #undef SPI_MOSI
+    #define SPI_MODE		SPI_MASTER
+  #else
+    #undef SPI_MISO
+    #define SPI_MODE		SPI_SLAVE
+  #endif
 #include "spi.h"
 #undef SPIn
-#if ch1 == -1
-  #undef ch1
-  #define ch1 1
-#elif ch1 == -2
-  #undef ch1
-  #define ch1 2
-#elif ch1 == -3
-  #undef ch1
-  #define ch1 3
-#endif
 
 void dma_register(SPI_DMA_RX(ch1)){}
 #ifndef SPIOSCI_TIMER
@@ -144,20 +133,10 @@ void dma_register(SPI_DMA_RX(ch1)){}
   #define SPI_MODE		SPI_SLAVE
   #include "spi.h"
   #undef SPIn
-  #if ch2 == -1
-    #undef ch2
-    #define ch2 1
-  #elif ch2 == -2
-    #undef ch2
-    #define ch2 2
-  #elif ch2 == -3
-    #undef ch2
-    #define ch2 3
-  #endif
   void dma_register(SPI_DMA_RX(ch2)){}
-  void dma_register(SPI_DMA_TX(ch1)){}
   
   #if ch3 != 0
+    #error Only 2 channels avaible!
     #define __SPIOSCI_PINS__ ch3
     #include "spi_osci.h"
     #undef SPI_MISO
@@ -167,19 +146,7 @@ void dma_register(SPI_DMA_RX(ch1)){}
     #define SPI_MODE		SPI_SLAVE
     #include "spi.h"
     #undef SPIn
-    #if ch3 == -1
-      #undef ch3
-      #define ch3 1
-    #elif ch3 == -2
-      #undef ch3
-      #define ch3 2
-    #elif ch3 == -3
-      #undef ch3
-      #define ch3 3
-    #endif
-    #define chbuf3(i) spiosci_buf[2][i]
     void dma_register(SPI_DMA_RX(ch3)){}
-    #define SPIOSCI_channels	3
   #else  //marg3 == 0
     #define SPIOSCI_channels	2
   #endif //marg3 ?= 0
@@ -187,55 +154,30 @@ void dma_register(SPI_DMA_RX(ch1)){}
   #define SPIOSCI_channels	1
 #endif //marg2 ?= 0
 
-__attribute__((aligned(2)))volatile uint8_t spiosci_buf[SPIOSCI_channels][SPIOSCI_SZ];
-uint8_t spiosci_idx[4] = {0, 1, 2, 0}; //idx[3] != 0 - error
-
-#define buf_broken(buf) ( ( ((uint32_t)buf) ^ ((uint32_t)buf+SPIOSCI_SZ) ) >> 16 )
-void spiosci_test64k_bound(){
-  if( buf_broken(spiosci_buf[0]) ){
-  #if ch1 == 3
-    spiosci_idx[0] = 0; spiosci_idx[1] = 1; spiosci_idx[2] = 2;
-  #elif ch2 == 3
-    spiosci_idx[0] = 1; spiosci_idx[1] = 0; spiosci_idx[2] = 2;
-  #elif ch3 == 3
-    spiosci_idx[0] = 2; spiosci_idx[1] = 1; spiosci_idx[2] = 0;
-  #else
-    spiosci_idx[3] = 1;
-  #endif
-  }else if( buf_broken(spiosci_buf[1]) ){
-  #if ch1 == 3
-    spiosci_idx[0] = 1; spiosci_idx[1] = 0; spiosci_idx[2] = 2;
-  #elif ch2 == 3
-    spiosci_idx[0] = 0; spiosci_idx[1] = 1; spiosci_idx[2] = 2;
-  #elif ch3 == 3
-    spiosci_idx[0] = 0; spiosci_idx[1] = 2; spiosci_idx[2] = 1;
-  #else
-    spiosci_idx[3] = 1;
-  #endif
-  }else if( buf_broken( spiosci_buf[2]) ){
-  #if ch1 == 3
-    spiosci_idx[0] = 2; spiosci_idx[1] = 1; spiosci_idx[2] = 0;
-  #elif ch2 == 3
-    spiosci_idx[0] = 0; spiosci_idx[1] = 2; spiosci_idx[2] = 1;
-  #elif ch3 == 3
-    spiosci_idx[0] = 0; spiosci_idx[1] = 1; spiosci_idx[2] = 2;
-  #else
-    spiosci_idx[3] = 1;
-  #endif
-  }
-}
-#undef buf_broken
-
+__attribute__((section(".spi_bufdata"))) uint8_t spiosci_buf1[SPIOSCI_SZ];
+__attribute__((section(".spi_bufdata"))) uint8_t spiosci_buf2[SPIOSCI_SZ];
 
 void spiosci_init(){
-  spiosci_test64k_bound();
-  
   SPI_init(ch1);
   SPI_size_16(ch1);
   dma_clock(SPI_DMA_RX(ch1), 1);
   dma_disable(SPI_DMA_RX(ch1));
   
-  dma_cfg_io(SPI_DMA_RX(ch1), spiosci_buf[spiosci_idx[0]], &SPI_DATA(ch1), SPIOSCI_SZ/2);
+#ifndef SPIOSCI_TIMER
+  dma_clock(SPI_DMA_TX(ch1), 1);
+  dma_disable(SPI_DMA_TX(ch1));
+  dma_cfg_io(SPI_DMA_TX(ch1), &SPI_DATA(ch1), spiosci_buf1, SPIOSCI_SZ/2);
+  dma_cfg_mem(SPI_DMA_TX(ch1), 16,0, 16,0, 0, DMA_PRI_VHIGH);
+#else
+  GPIO_manual(SPIOSCI_TIMOUT, GPIO_APP50);
+  timer_init(SPIOSCI_TIMER, SPIOSCI_SPEED/2-1, 2-1);
+  timer_chval(SPIOSCI_TIMER) = 1;
+  timer_chcfg(SPIOSCI_TIMER);
+  TIMO_OFF(SPIOSCI_TIMER);
+  timer_enable(SPIOSCI_TIMER);
+#endif
+  
+  dma_cfg_io(SPI_DMA_RX(ch1), spiosci_buf1, &SPI_DATA(ch1), SPIOSCI_SZ/2);
   dma_cfg_mem(SPI_DMA_RX(ch1), 16,1, 16,0, 0, DMA_PRI_VHIGH);
   dma_enable(SPI_DMA_RX(ch1));
   
@@ -245,7 +187,7 @@ void spiosci_init(){
   dma_clock(SPI_DMA_RX(ch2), 1);
   dma_disable(SPI_DMA_RX(ch2));
   
-  dma_cfg_io(SPI_DMA_RX(ch2), spiosci_buf[spiosci_idx[1]], &SPI_DATA(ch2), SPIOSCI_SZ/2);
+  dma_cfg_io(SPI_DMA_RX(ch2), spiosci_buf2, &SPI_DATA(ch2), SPIOSCI_SZ/2);
   dma_cfg_mem(SPI_DMA_RX(ch2), 16,1, 16,0, 0, DMA_PRI_VHIGH);
   dma_enable(SPI_DMA_RX(ch2));
 #endif
@@ -256,24 +198,12 @@ void spiosci_init(){
   dma_clock(SPI_DMA_RX(ch3), 1);
   dma_disable(SPI_DMA_RX(ch3));
   
-  dma_cfg_io(SPI_DMA_RX(ch3), spiosci_buf[spiosci_idx[2]], &SPI_DATA(ch3), SPIOSCI_SZ/2);
+  dma_cfg_io(SPI_DMA_RX(ch3), bufaddr[2], &SPI_DATA(ch3), SPIOSCI_SZ/2);
   dma_cfg_mem(SPI_DMA_RX(ch3), 16,1, 16,0, 0, DMA_PRI_VHIGH);
   dma_enable(SPI_DMA_RX(ch3));
 #endif
   
-#ifndef SPIOSCI_TIMER
-  dma_clock(SPI_DMA_TX(ch1), 1);
-  dma_disable(SPI_DMA_TX(ch1));
-  dma_cfg_io(SPI_DMA_TX(ch1), &SPI_DATA(ch1), spiosci_buf[0], SPIOSCI_SZ/2);
-  dma_cfg_mem(SPI_DMA_TX(ch1), 16,0, 16,0, 0, DMA_PRI_VHIGH);
-#else
-  GPIO_manual(SPIOSCI_TIMOUT, GPIO_APP50);
-  timer_init(SPIOSCI_TIMER, SPIOSCI_SPEED/2-1, 2-1);
-  timer_chval(SPIOSCI_TIMER) = 1;
-  timer_chcfg(SPIOSCI_TIMER);
-  TIMO_OFF(SPIOSCI_TIMER);
-  timer_enable(SPIOSCI_TIMER);
-#endif
+
 }
 
 #ifndef SPIOSCI_TIMER
@@ -306,33 +236,25 @@ uint16_t spiosci_count(){
 //  return SPIOSCI_SZ - DMA_CH(SPI_DMA_RX(ch1))->CNTR;
 }
 
-#warning TODO: SPIOSCI_LOGSIZE
-
 typedef void (*spiosci_outfunc_t)(uint8_t chan1, uint8_t chan2, uint8_t chan3);
 
-#define chbuf1(i)	spiosci_buf[spiosci_idx[0]][i]
+#define chbuf1(i)	spiosci_buf1[i]
 #if ch2 != 0
-  #define chbuf2(i)	spiosci_buf[spiosci_idx[1]][i]
+  #define chbuf2(i)	spiosci_buf2[i]
 #else
   #define chbuf2(i)	0
 #endif
 #if ch3 != 0
-  #define chbuf3(i)	spiosci_buf[spiosci_idx[2]][i]
+  #define chbuf3(i)	((uint8_t*)bufaddr[2])[i]
 #else
   #define chbuf3(i)	0
 #endif
 
 void spiosci_out(spiosci_outfunc_t outfunc){
   uint32_t cnt = spiosci_count();
-  if(spiosci_idx[3] == 0){
-    for(uint32_t i=0; i<cnt; i++){
-      outfunc( chbuf1(i), chbuf2(i), chbuf3(i) );
-      //outfunc( spiosci_buf[0][i], 0, 0 );
-    }
-  }else{
-    for(uint32_t i=0; i<100; i++){
-      outfunc( 0, 0, 0 );
-    }
+  for(uint32_t i=0; i<cnt; i++){
+    outfunc( chbuf1(i), chbuf2(i), chbuf3(i) );
+    //outfunc( spiosci_buf[0][i], 0, 0 );
   }
 }
 
