@@ -11,7 +11,6 @@
   #define SPIOSCI_SPEED 2 // F_APB( SPI3 ) / 2
   #define SPIOSCI_SZ	1000
   #include "spi_osci.h"
-  //WARNING: inputs: SPI3-MISO, other-MOSI
 //2: clock from Timer
   #define SPIOSCI			3,1,-2 // all SPI = slaves (SPI2 - remap)
   #define SPIOSCI_TIMER		10,1,TIMO_PWM_NINV | TIMO_NEG | TIMO_REMAP1 //TIM10.1N, remap1
@@ -20,18 +19,19 @@
   #define SPIOSCI_SZ		1000
   #define SPIOSCI_LOGSIZE	1000 // (may be undefined) text buffer to comments as ch4 UART text string
   #include "spi_osci.h"
-  //WARNING: inputs: all - MOSI
 //Common:
-  void spiosci_uart(uint8_t chan1, uint8_t chan2, uint8_t chan3){
+  void spiosci_uart(uint16_t idx, uint16_t cnt, uint8_t chan1, uint8_t chan2, uint8_t chan3, uint8_t log){
     for(int i=0; i<8; i++){
       while(UART_avaible(USART) < 16){}
       uint8_t a = chan1 & 1;
       uint8_t b = chan2 & 1;
       uint8_t c = chan3 & 1;
-      UART_putc(USART, '@' | a | (b<<1) | (c<<2));
+      uint8_t l = log & 1;
+      UART_putc(USART, 0x80 | a | (b<<1) | (c<<2) | (l<<4));
       chan1 >>= 1;
       chan2 >>= 1;
       chan3 >>= 1;
+      log >>= 1;
     }
   }
 ...
@@ -39,34 +39,35 @@
   spiosci_start();
   //Do smth
   spiosci_stop();
+  spiosci_log("Some info");
   spiosci_out(spiosci_uart);
 #endif
 
 
 #ifdef __SPIOSCI_PINS__
 
-#if __SPIOSCI_PINS__ == 1
+#if __SPIOSCI_PINS__ == 1	//SPI_1
   #define SPIn			1
   #define SPI_MISO		A,6,1
   #define SPI_MOSI		A,7,1
   #define SPI_SCK		A,5,1
-#elif __SPIOSCI_PINS__ == -1
+#elif __SPIOSCI_PINS__== -1	//SPI_1, remap
   #define SPIn			1
   #define SPI_REMAP
   #define SPI_MISO		B,4,1
   #define SPI_MOSI		B,5,1
   #define SPI_SCK		B,3,1
-#elif __SPIOSCI_PINS__ == 2
+#elif __SPIOSCI_PINS__ == 2	//SPI_2
   #define SPIn			2
   #define SPI_MISO		B,14,1
   #define SPI_MOSI		B,15,1
   #define SPI_SCK		B,13,1
-#elif __SPIOSCI_PINS__ == 3
+#elif __SPIOSCI_PINS__ == 3	//SPI_3
   #define SPIn			3
   #define SPI_MISO		B,4,1
   #define SPI_MOSI		B,5,1
   #define SPI_SCK		B,3,1
-#elif __SPIOSCI_PINS__ == -3
+#elif __SPIOSCI_PINS__== -3	//SPI_3, remap
   #define SPIn			3
   #define SPI_REMAP
   #define SPI_MISO		C,11,1
@@ -202,7 +203,7 @@ void spiosci_test64k_bound(){
   #else
     spiosci_idx[3] = 1;
   #endif
-  }else if( buf_broken(spiosci_buf[1]) ){
+  }else if( (SPIOSCI_channels>1) && buf_broken(spiosci_buf[1]) ){
   #if ch1 == 3
     spiosci_idx[0] = 1; spiosci_idx[1] = 0; spiosci_idx[2] = 2;
   #elif ch2 == 3
@@ -212,7 +213,7 @@ void spiosci_test64k_bound(){
   #else
     spiosci_idx[3] = 1;
   #endif
-  }else if( buf_broken( spiosci_buf[2]) ){
+  }else if( (SPIOSCI_channels>2) && buf_broken( spiosci_buf[2]) ){
   #if ch1 == 3
     spiosci_idx[0] = 2; spiosci_idx[1] = 1; spiosci_idx[2] = 0;
   #elif ch2 == 3
@@ -306,9 +307,44 @@ uint16_t spiosci_count(){
 //  return SPIOSCI_SZ - DMA_CH(SPI_DMA_RX(ch1))->CNTR;
 }
 
-#warning TODO: SPIOSCI_LOGSIZE
+#ifdef SPIOSCI_LOGSIZE
+uint8_t spiosci_logbuf[SPIOSCI_LOGSIZE];
+volatile uint16_t spiosci_lcount = 0;
+void spiosci_log(char *str){
+  while(str[0]){
+    spiosci_logbuf[ spiosci_lcount ] = str[0];
+    spiosci_lcount++;
+    str++;
+  }
+}
 
-typedef void (*spiosci_outfunc_t)(uint8_t chan1, uint8_t chan2, uint8_t chan3);
+void spiosci_resetlog(){
+  spiosci_lcount = 0;
+}
+
+uint8_t spiosci_outbuf(uint32_t i){
+  if( i < 10 )return 0xFF;
+  i -= 10;
+  uint32_t idx = (i * 8 / 10);
+  uint8_t offs = (i * 8 % 10);
+  if(idx >= spiosci_lcount)return 0xFF;
+  uint8_t a = spiosci_logbuf[idx];
+  uint16_t res;
+  if( idx < spiosci_lcount-1 ){
+    uint8_t b = spiosci_logbuf[idx + 1];
+    res = 0 | (a<<1) | (1<<9) | (0<<10) | (b<<11);
+  }else{
+    res = 0 | (a<<1) | (1<<9) | (1<<10) | (0xFFFF<<11);
+  }
+  res >>= offs;
+  return res;
+}
+#else
+void spiosci_log(char *str){}
+uint8_t spiosci_outbuf(uint32_t i){return 0;}
+#endif
+
+typedef void (*spiosci_outfunc_t)(uint16_t idx, uint16_t max, uint8_t chan1, uint8_t chan2, uint8_t chan3, uint8_t log);
 
 #define chbuf1(i)	spiosci_buf[spiosci_idx[0]][i]
 #if ch2 != 0
@@ -326,12 +362,14 @@ void spiosci_out(spiosci_outfunc_t outfunc){
   uint32_t cnt = spiosci_count();
   if(spiosci_idx[3] == 0){
     for(uint32_t i=0; i<cnt; i++){
-      outfunc( chbuf1(i), chbuf2(i), chbuf3(i) );
+      outfunc( i, cnt, chbuf1(i), chbuf2(i), chbuf3(i), spiosci_outbuf(i) );
       //outfunc( spiosci_buf[0][i], 0, 0 );
     }
   }else{
+    spiosci_resetlog();
+    spiosci_log("Buffer crosses the 64k boundary; One channel must be SPI3");
     for(uint32_t i=0; i<100; i++){
-      outfunc( 0, 0, 0 );
+      outfunc( i, 100, 0, 0, 0, spiosci_outbuf(i) );
     }
   }
 }
