@@ -3,8 +3,10 @@
 
 #if 1==0
 //#define DMA_REV //если входной/выходной канал для данного DMA и данной периферии недоступны, можно попробовать поменять
+//#define DMA_REV_SUPPORT //do nothing; compatibility with another MCUs
   dma_clock(DMA, en)
   dma_cfg_io(DMA, dst, src, count);
+  //dma_cfg_io_m2p(DMA, dst, src, count);
   dma_cfg_mem(DMA, dst_size, dst_inc, src_size, src_inc, circ, prior);
     //inc = 1 => auto increment, 0 => no auto increment
     //circ = 1 => circular mode, 0 => single mode
@@ -22,12 +24,12 @@
   dma_disable(DMA);
   
 //example:
-#define DMA_SPI 1,2
-  void dma_register(DMA_SPI){}
-  dma_clock(DMA_SPI, 1);
-  dma_cfg_io(DMA_SPI, &(SPI1->DR), buf, 100);
-  dma_cfg_mem(DMA_SPI, 8,0, 8,1, 0, DMA_PRI_LOW);
-  dma_enable(DMA_SPI);
+#define SPI1_DMA_TX	1,3,do{SPI1->CTLR2 |= SPI_CTLR2_TXDMAEN;}while(0),do{SPI1->CTLR2 &=~ SPI_CTLR2_TXDMAEN;}while(0)
+  void dma_register(SPI1_DMA_TX){}
+  dma_clock( SPI1_DMA_TX, 1 );
+  dma_cfg_io( SPI1_DMA_TX, &SPI_DATA(1), buf, 100 );
+  dma_cfg_mem( SPI1_DMA_TX, 8,0, 8,1, 0, DMA_PRI_LOW );
+  dma_enable( SPI1_DMA_TX );
 #endif
   
   
@@ -92,40 +94,21 @@
   do{ \
     if(x)RCC->AHBPCENR |= _DMA_AHBEN(dma); else RCC->AHBPCENR &=~ _DMA_AHBEN(dma); \
   }while(0)
-
-#ifndef DMA_REV
   
-#define dma_cfg_io(dma, dst, src, cnt) \
-  do{ \
+#define dma_cfg_io(dma, dst, src, cnt) do{ \
     _DMA_CH(dma)->PADDR = (uint32_t)(src); \
     _DMA_CH(dma)->MADDR = (uint32_t)(dst); \
     _DMA_CH(dma)->CNTR  = (uint16_t)(cnt); \
+    if(0)(( void(*)(volatile void*, volatile void*) )\
+      "dma_cfg_io(void*, void*)")(dst, src); \
   }while(0)
+  
 #define dma_cfg_mem(dma, dstsize, dstinc, srcsize, srcinc, circ, prior) do{ \
     uint32_t temp = _DMA_CH(dma)->CFGR; \
-    temp &=~ ((0b11*DMA_CFGR1_PL_0) | (0b11*DMA_CFGR1_MSIZE_0) | (0b11*DMA_CFGR1_PSIZE_0) | DMA_CFGR1_MINC | DMA_CFGR1_PINC | DMA_CFGR1_CIRC); \
+    temp &=~ ((0b11*DMA_CFGR1_PL_0) | (0b11*DMA_CFGR1_MSIZE_0) | (0b11*DMA_CFGR1_PSIZE_0) | DMA_CFGR1_MINC | DMA_CFGR1_PINC | DMA_CFGR1_CIRC | DMA_CFGR1_DIR); \
     temp |= (prior*DMA_CFGR1_PL_0) | (SIZE2BITS(dstsize)*DMA_CFGR1_MSIZE_0) | (SIZE2BITS(srcsize)*DMA_CFGR1_PSIZE_0) | (dstinc*DMA_CFGR1_MINC) | (srcinc*DMA_CFGR1_PINC) | (circ*DMA_CFGR1_CIRC); \
-    temp &=~ DMA_CFGR1_DIR; \
     _DMA_CH(dma)->CFGR = temp; \
   }while(0)
-  
-#else
-  
-#define dma_cfg_io(dma, dst, src, cnt) \
-  do{ \
-    _DMA_CH(dma)->PADDR = (uint32_t)(dst); \
-    _DMA_CH(dma)->MADDR = (uint32_t)(src); \
-    _DMA_CH(dma)->CNTR  = (uint16_t)(cnt); \
-  }while(0)
-#define dma_cfg_mem(dma, dstsize, dstinc, srcsize, srcinc, circ, prior) do{ \
-    uint32_t temp = _DMA_CH(dma)->CFGR; \
-    temp &=~ ((0b11*DMA_CFGR1_PL_0) | (0b11*DMA_CFGR1_MSIZE_0) | (0b11*DMA_CFGR1_PSIZE_0) | DMA_CFGR1_MINC | DMA_CFGR1_PINC | DMA_CFGR1_CIRC); \
-    temp |= (prior*DMA_CFGR1_PL_0) | (SIZE2BITS(srcsize)*DMA_CFGR1_MSIZE_0) | (SIZE2BITS(dstsize)*DMA_CFGR1_PSIZE_0) | (srcinc*DMA_CFGR1_MINC) | (dstinc*DMA_CFGR1_PINC) | (circ*DMA_CFGR1_CIRC); \
-    temp |= DMA_CFGR1_DIR;
-    _DMA_CH(dma)->CFGR = temp; \
-  }while(0)
-  
-#endif
   
 #define dma_flag(dma, flag) (_DMAx(dma)->INTFR & DMA_INTFRF(flag, dma))
 #define dma_flag_clear(dma, flag...) _DMA_CLEAR(cnt9(flag), dma)(flag, dma)
