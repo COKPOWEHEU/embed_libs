@@ -57,7 +57,7 @@ static inline void SPI_size_16();
 #define SPI_DMA_RX(spi) _SPI_DMA_RX(spi)
 
 #ifndef SPI_SCK
-  #error not found '#define SPI_SCK P,n,a' (P=port, n=pin number, a=active level)
+  //#error not found '#define SPI_SCK P,n,a' (P=port, n=pin number, a=active level)
 #endif
 #ifndef SPI_LSBFIRST
   #warning SPI_LSBFIRST not defined; using default (0)
@@ -143,15 +143,21 @@ static inline void SPI_size_16();
   #endif
 #endif
 
+#ifdef SPI_SCK
+#define SPI_CHPOL	(!marg3(SPI_SCK))
+#else
+#define SPI_CHPOL	0
+#endif
+
 #define CR1_mstr_def (SPI_CTLR1_MSTR | SPI_BRR | SPI_CTLR1_SPE | SPI_CTLR1_SSI | SPI_CTLR1_SSM | \
                 (SPI_CTLR1_LSBFIRST * (SPI_LSBFIRST)) |\
                 (SPI_CTLR1_CPHA * (SPI_PHASE)) | \
-                (SPI_CTLR1_CPOL * (!marg3(SPI_SCK))))
+                (SPI_CTLR1_CPOL * SPI_CHPOL))
 
 #define CR1_sla_def (SPI_BRR | SPI_CTLR1_SPE | SPI_CTLR1_SSM | \
                 (SPI_CTLR1_LSBFIRST * (SPI_LSBFIRST)) |\
                 (SPI_CTLR1_CPHA * (SPI_PHASE)) | \
-                (SPI_CTLR1_CPOL * (!marg3(SPI_SCK))))
+                (SPI_CTLR1_CPOL * SPI_CHPOL))
 
 #if SPI_MODE == SPI_MASTER
   #define _SPI_rdy() (!(SPI_NAME(SPIn)->STATR & SPI_STATR_BSY))
@@ -173,7 +179,7 @@ void SPI_func(SPIn, disable)(){
 }
 
 void SPI_func(SPIn, enable)(){
-  SPI_wait(SPIn);
+  //SPI_wait(SPIn);
   SPI_NAME(SPIn)->CTLR1 |= SPI_CTLR1_SPE;
 }
 
@@ -211,8 +217,10 @@ void SPI_func(SPIn, init)(){
   GPIO_manual(SPI_MOSI, GPIO_APP50);
   GPO_OFF(SPI_MOSI);
 #endif
+#ifdef SPI_SCK
   GPIO_manual(SPI_SCK, GPIO_APP50);
   GPO_OFF(SPI_SCK);
+#endif
 
   SPI_NAME(SPIn)->CTLR1 = CR1_mstr_def;
   
@@ -225,7 +233,9 @@ void SPI_func(SPIn, init)(){
 #ifdef SPI_MOSI
   GPIO_manual(SPI_MOSI, GPIO_HIZ);
 #endif
+#ifdef SPI_SCK
   GPIO_manual(SPI_SCK, GPIO_HIZ);
+#endif
   SPI_NAME(SPIn)->CTLR1 = CR1_sla_def;
 #endif
   
