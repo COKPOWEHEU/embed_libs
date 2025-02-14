@@ -75,7 +75,7 @@
       if((_marg1(tim)==1)||(_marg1(tim)==8)||(_marg1(tim)==9)||(_marg1(tim)==10)){ \
         _TIMx(tim)->BDTR |= TIM_MOE; \
         if((_marg3(tim)) & TIMO_POS)_TIMx(tim)->CCER |= TIMx_CCE(tim); \
-        if((_marg3(tim)) & TIMO_NEG) _TIMx(tim)->CCER |= TIMx_CCNE(tim); \
+        if(((_marg3(tim)) & TIMO_NEG)&&(_marg2(tim)!=4)) _TIMx(tim)->CCER |= TIMx_CCNE(tim); \
       }else{ \
         _TIMx(tim)->CCER |= TIMx_CCE(tim); \
       }\
@@ -108,6 +108,8 @@
 #define APBTIM_8(op)	RCC->APB2PCENR op (1<<13)
 #define APBTIM_9(op)	RCC->APB2PCENR op (1<<19)
 #define APBTIM_10(op)	RCC->APB2PCENR op (1<<20)
+    
+#define TIM_CC4NE	(1<<14)
 
 
 #define TIMCHAN_1	1
