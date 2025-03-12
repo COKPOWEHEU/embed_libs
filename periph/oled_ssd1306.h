@@ -93,7 +93,7 @@ static struct{
 #define oled_screen (oled_scrcmd.buf)
 
 void oled_send(uint8_t *buf, uint16_t count){
-  i2cm_start(I2C_ADDR_OLED, buf, count, NULL, 0, 1000*count);
+  i2cm_start(I2C_ADDR_OLED, buf, count, NULL, 0, 1*count);
   i2cm_wait();
   //delay_ms(10);
 }
