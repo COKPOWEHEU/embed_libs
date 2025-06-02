@@ -1,5 +1,85 @@
 #include "strlib.h"
 
+#ifdef MEMFUNC_DMA
+
+#include "dma.h"
+
+#define ch32v20x 203
+#define ch32v30x 303
+
+#if marg3(MEMFUNC_DMA)==ch32v20x
+  #include "ch32v20x.h"
+#elif marg3(MEMFUNC_DMA)==ch32v30x
+  #include "ch32v30x.h"
+#else
+  #error MCU not defined. Use -DMEMFUNC_DMA=1,1,ch32v20x or -DMEMFUNC_DMA=3,2,ch32v30x or same
+#endif
+
+#undef ch32v20x
+#undef ch32v30x
+
+#if marg1(MEMFUNC_DMA) == 1
+  #warning DMA1 cant cross 64k memory boundary
+#endif
+
+void dma_register(MEMFUNC_DMA){}
+
+void *memcpy(void *dst, void *src, uint32_t n){
+  dma_clock(MEMFUNC_DMA, 1);
+  DMA_CH(MEMFUNC_DMA)->CFGR &=~ DMA_CFGR1_EN;
+  DMA_CH(MEMFUNC_DMA)->CFGR |= DMA_CFGR1_MEM2MEM;
+  
+  dma_flag_clear(MEMFUNC_DMA, DMA_F_FULL);
+  
+  dma_cfg_io(MEMFUNC_DMA, dst, src, n/4);
+  switch( ((uint32_t)dst | (uint32_t)src) & 3 ){
+    case 0: dma_cfg_mem(MEMFUNC_DMA, 32,1, 32,1, 0, DMA_PRI_LOW); break;
+    case 2: dma_cfg_mem(MEMFUNC_DMA, 16,1, 16,1, 0, DMA_PRI_LOW); DMA_CH(MEMFUNC_DMA)->CNTR = n/2; break;
+    default:dma_cfg_mem(MEMFUNC_DMA, 8, 1, 8, 1, 0, DMA_PRI_LOW); DMA_CH(MEMFUNC_DMA)->CNTR = n;   break;
+  }
+  
+  DMA_CH(MEMFUNC_DMA)->CFGR |= DMA_CFGR1_EN;
+  while(!dma_flag(MEMFUNC_DMA, DMA_F_FULL)){}
+  return dst;
+}
+
+void *memset(void *dst, int val, uint32_t n){
+  dma_clock(MEMFUNC_DMA, 1);
+  DMA_CH(MEMFUNC_DMA)->CFGR |= DMA_CFGR1_MEM2MEM;
+  if(n > 3){
+    __attribute__ ((aligned (4))) uint8_t src[4] = {val, val, val, val};
+    DMA_CH(MEMFUNC_DMA)->CFGR &=~ DMA_CFGR1_EN;
+    dma_flag_clear(MEMFUNC_DMA, DMA_F_FULL);
+    dma_cfg_io(MEMFUNC_DMA, (uint8_t*)(((uint32_t)dst+3)&~3LU), &src, n/4);
+    dma_cfg_mem(MEMFUNC_DMA, 32,1, 32,0, 0, DMA_PRI_VHIGH);
+    DMA_CH(MEMFUNC_DMA)->CFGR |= DMA_CFGR1_EN;
+    
+    ((uint8_t*)dst)[0] = ((uint8_t*)dst)[1] = ((uint8_t*)dst)[2] = val;
+    ((uint8_t*)dst)[n-1] = ((uint8_t*)dst)[n-2] = ((uint8_t*)dst)[n-3] = val;
+    
+    while(!dma_flag(MEMFUNC_DMA, DMA_F_FULL)){}
+  }else{
+    for(int i=0; i<n; i++)((uint8_t*)dst)[i] = val;
+  }
+  return dst;
+}
+
+#elif defined MEMFUNC
+
+void* memcpy(void *dst, void *src, uint32_t len){
+  for(uint32_t i=0; i<len; i++){
+    ((uint8_t*)dst)[i] = ((uint8_t*)src)[i];
+  }
+  return dst;
+}
+
+void *memset(void *s, int c, uint32_t n){
+  for(uint32_t i=0; i<n; i++)((uint32_t*)s)[i] = c;
+  return s;
+}
+
+#endif
+
 #define NUMLEN(val) (\
   (val)<100000?( /* <10⁵ */ \
     (val)< 100?( \

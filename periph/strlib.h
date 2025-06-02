@@ -27,4 +27,10 @@ char* fpi32tos_inplace(char *buf, int32_t val, uint8_t dot, int8_t field);
 char* u32tohex(char *buf, uint32_t val);
 
 
+// -DMEMFUNC or -DMEMFUNC_DMA=2,3
+#if defined(MEMFUNC) || defined(MEMFUNC_DMA)
+void* memcpy(void *dst, void *src, uint32_t len);
+void *memset(void *s, int c, uint32_t n);
+#endif
+
 #endif
