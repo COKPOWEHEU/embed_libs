@@ -2,8 +2,11 @@
 #define __TIMER_H__
 
 #if 1==0
-  #define IO	A,11,0,GPIO_APP50
-  #define TIM 1,4,TIMO_PWM_NINV
+  // When using 'Advanced timers', you must declare a TIMO_POS or TIMO_NEG, as in 
+  #define ADV_TIM 1,1,TIMO_PWM_NINV | TIMO_POS // or #define ADV_TIM 1,1,TIMO_PWM_NINV | TIMO_NEG
+  
+  #define IO    A,11,0,GPIO_APP50
+  #define TIM   1,4,TIMO_PWM_NINV
 
   GPIO_config(IO);
   timer_init(TIM, 14400-1, 10000-1);
@@ -15,6 +18,8 @@
   TIMO_ON(TIM);
   TIMO_OFF(TIM);
   TIMO_DEF(TIM);
+  
+  #define TSND	1,2,TIMO_PWM_NINV | TIMO_POS
 #endif
   
 #define TIMO_NONE		0
@@ -73,6 +78,12 @@
     if((TIMMODE(tim) >= TIMO_SET_ACT) && (TIMMODE(tim) <= TIMO_PWM_INV)){ \
       PM_BITMASK(_TIMx(tim)->CHCTRLx(tim), TIMx_CCcS(tim), 0b00); \
       if((_marg1(tim)==1)||(_marg1(tim)==8)||(_marg1(tim)==9)||(_marg1(tim)==10)){ \
+        /* When using 'Advanced timers', you must declare a TIMO_POS or TIMO_NEG, as in */ \
+        /* #define tim 1,1,TIMO_PWM_NINV | TIMO_POS                                     */ \
+        /* ERROR: See "timer.h" */char arr[ \
+                 (_marg1(tim)==1)||(_marg1(tim)==8)||(_marg1(tim)==9)||(_marg1(tim)==10) \
+                 ?(  (!((_marg3(tim)) & TIMO_POS)) ^ (!((_marg3(tim)) & TIMO_NEG))  )- 1  \
+                 : 0 ]; \
         _TIMx(tim)->BDTR |= TIM_MOE; \
         if((_marg3(tim)) & TIMO_POS)_TIMx(tim)->CCER |= TIMx_CCE(tim); \
         if(((_marg3(tim)) & TIMO_NEG)&&(_marg2(tim)!=4)) _TIMx(tim)->CCER |= TIMx_CCNE(tim); \
@@ -89,6 +100,8 @@
     }while(0)
   
 #define timer_enable(tim) do{_TIMx(tim)->CTLR1 |= TIM_CEN;}while(0)
+#define timer_disable(tim) do{_TIMx(tim)->CTLR1 &=~ TIM_CEN;}while(0)
+#define timer_enabled(tim) (_TIMx(tim)->CTLR1 & TIM_CEN)
 #define timer_cnt(tim) _TIMx(tim)->CNT
 #define timer_chval(tim) _TIMx(tim)->TIMx_CH1CVR(tim)
 #define timer_dma(tim)	_TIM_DMA(tim)
