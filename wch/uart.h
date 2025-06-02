@@ -28,11 +28,61 @@ Macro-settings:
   USART_REMAP - remap number: 0(default), 1, 2, ...
   
 
+// num - UART number (usually, USART macro)
+// Initialize UART. brr - baudrate
+void UART_init(num, brr);
+
+// Return count of bytes received
+uint32_t UART_received(num);
+
+// Return length of received string (string end is \r or \n)
+//  return value -1: buffer overflow
+//  return value 0: string is not received (\r or \n not found)
+//  return value other: length of string
+int32_t UART_str_size(num);
+
+// Return count of bytes avaible to send buffer
+uint32_t UART_avaible(num);
+
+// Receive 1 byte (return -1 - receive buffer is empty)
+int16_t UART_getc(num);
+
+// Receive [len] bytes into [data]
+//  return value NULL: bytes received less than [len]
+//  return value other: [data]
+char* UART_read(num, data, len)
+
+// Receive string with maximum length [len] into [str]
+//  return value NULL: string is not received
+//  return value other: [str]
+char* UART_gets(num, str, len);
+
+// Clear receive buffer
+void UART_rx_clear(num);
+
+// Send [len] bytes from [data]
+void UART_write(num, data, len);
+
+// Send string [str]
+void UART_puts(num, str);
+  
+
 #endif
 
 #ifndef NULL
   #define NULL ((void*)0)
 #endif
+
+#define UART_init(num, brr) _UART_init(num, brr)
+#define UART_received(num)	_UART_received(num)
+#define UART_str_size(num) _UART_str_size(num) //-1=error, 0=\r\n not found, other = string length
+#define UART_avaible(num)  _UART_avaible(num)
+#define UART_getc(num)  	_UART_getc(num)
+#define UART_read(num, data, len) _UART_read(num, data, len)
+#define UART_gets(num, str, len) _UART_gets(num, str, len)
+#define UART_rx_clear(num) _UART_rx_clear(num)
+#define UART_write(num, data, len) _UART_write(num, data, len)
+#define UART_puts(num, str) _UART_puts(num, str)
 
 #define _UART_PIN(num,dir) UART ## num ## _ ## dir
 #define UART_PIN(num,dir) _UART_PIN(num,dir)
@@ -56,19 +106,6 @@ Macro-settings:
 #define _UART_write(num, data, len) UART##num##_write(data, len)
 #define _UART_puts(num, str) UART##num##_puts(str)
 
-#define UART_init(num, brr) _UART_init(num, brr)
-#define UART_received(num)	_UART_received(num)
-#define UART_str_size(num) _UART_str_size(num)
-#define UART_avaible(num)  _UART_avaible(num)
-#define UART_getc(num)  	_UART_getc(num)
-#define UART_read(num, data, len) _UART_read(num, data, len)
-#define UART_gets(num, str, len) _UART_gets(num, str, len)
-#define UART_rx_clear(num) _UART_rx_clear(num)
-#define UART_write(num, data, len) _UART_write(num, data, len)
-#define UART_puts(num, str) _UART_puts(num, str)
-
-
-
 #define _UARTn_func(n, func) UART ## n ## _ ## func
 #define UARTn_func(n, func) _UARTn_func(n, func)
 
@@ -77,7 +114,7 @@ Macro-settings:
   UART(num)->CTLR1 |= USART_CTLR1_TXEIE;\
 }while(0)
 
-
+#include <stdint.h>
 
 
 #ifdef USART
@@ -89,32 +126,26 @@ Macro-settings:
   #define UART_SIZE_PWR 6
 #endif
 
-#if UART_SIZE_PWR < 8
-  #define uart_size_t uint8_t
-#else
-  #define uart_size_t uint16_t
-#endif
-
 #define UART_SIZE (1<<UART_SIZE_PWR)
 #define UART_MASK (UART_SIZE-1)
 
 typedef struct{
-  volatile uart_size_t st,en;
+  volatile uint32_t st,en;
   volatile uint8_t arr[UART_SIZE];
 }uart_buffer;
 
 uart_buffer uartN_Dx(USART, rx); //uart1_rx
 uart_buffer uartN_Dx(USART, tx); //uart1_tx
 
-static uart_size_t uart_buf_busy(uart_buffer *buf){
+static uint32_t uart_buf_busy(uart_buffer *buf){
   return ((buf->st - buf->en) & UART_MASK);
 }
 //#define uart_buf_busy(buf) (((buf)->st - (buf)->en) & UART_MASK)
 #define uart_buf_free(buf) (UART_SIZE - uart_buf_busy(buf) - 1)
 
-static uint8_t uart_buf_getc(uart_buffer *buf){
+static int16_t uart_buf_getc(uart_buffer *buf){
   uint8_t res;
-  if(uart_buf_busy(buf) == 0)return 0;
+  if(uart_buf_busy(buf) == 0)return -1;
   res = buf->arr[buf->en];
   buf->en++;
   buf->en &= UART_MASK;
@@ -146,7 +177,7 @@ static char *uart_buf_gets(uart_buffer *buf, char *str, uint32_t len){
   uint8_t *arr = (uint8_t*)(buf->arr);
   uint32_t sz = (buf->st - en) & UART_MASK;
   uint32_t strsz;
-  uint32_t pos;
+  uint32_t pos = (1 + en) & UART_MASK;
   str[0] = 0;
   if(sz > len)sz = len;
   if(sz < 2)return NULL;
@@ -449,6 +480,7 @@ void UARTn_func(USART, init)(uint16_t brr){
 #define _uart_IRQ(num) USART ## num ## _IRQHandler
 #define uart_IRQ(num) _uart_IRQ(num)
 //__attribute__((interrupt)) void USART2_IRQHandler(void){
+__attribute__(( optimize("-Ofast") ))
 __attribute__((interrupt)) void uart_IRQ(USART)(void){
   if( UART(USART)->STATR & USART_STATR_RXNE ){
     uint8_t temp = UART(USART)->DATAR;
