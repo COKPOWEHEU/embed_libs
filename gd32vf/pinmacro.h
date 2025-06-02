@@ -1,6 +1,8 @@
 #ifndef __PINMACRO_H__
 #define __PINMACRO_H__
 
+#define PM_BITMASK( reg, mask, val ) do{ (reg) = ((reg) &~ (mask)) | (((mask) &~((mask)<<1))*(val)); }while(0)
+
 #define GPIO_OUT  0b0000 //output
 #define GPIO_ALT  0b1000 //alternative function output
 #define GPIO_PP   0b0000 //push-pull
@@ -34,10 +36,12 @@
 #define _marg2(a,b,...)  b
 #define _marg3(a,b,c,...)  c
 #define _marg4(a,b,c,d,...)  d
+#define _marg5(a,b,c,d,e,...)  e
 #define marg1(x) _marg1(x)
 #define marg2(x) _marg2(x)
 #define marg3(x) _marg3(x)
 #define marg4(x) _marg4(x)
+#define marg5(x) _marg5(x)
 #define _GPIO(port) GPIO##port
 #define GPIO(x) _GPIO(x)
 
