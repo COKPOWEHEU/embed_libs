@@ -74,7 +74,7 @@ void* memcpy(void *dst, void *src, uint32_t len){
 }
 
 void *memset(void *s, int c, uint32_t n){
-  for(uint32_t i=0; i<n; i++)((uint32_t*)s)[i] = c;
+  for(uint32_t i=0; i<n; i++)((uint8_t*)s)[i] = c;
   return s;
 }
 
