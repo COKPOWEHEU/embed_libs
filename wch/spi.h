@@ -13,13 +13,13 @@
 #define SPI_PHASE		0
 #define SPI_MODE		SPI_MASTER
 
-static inline void SPI_init();
-static uint16_t SPI_send(uint16_t data);
-uint8_t SPI_ready();
-void SPI_disable();
-void SPI_enable();
-static inline void SPI_size_8();
-static inline void SPI_size_16();
+static inline void SPI_init(SPIn);
+static uint16_t SPI_send(SPIn, uint16_t data);
+uint8_t SPI_ready(SPIn);
+void SPI_disable(SPIn);
+void SPI_enable(SPIn);
+static inline void SPI_size_8(SPIn);
+static inline void SPI_size_16(SPIn);
 
 #endif
 
