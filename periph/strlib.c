@@ -170,13 +170,33 @@ char* fpi32tos_inplace(char *buf, int32_t val, uint8_t dot, int8_t field){
   return &buf[field];
 }
 
-char* u32tohex(char *buf, uint32_t val){
+char* u32tohex(char *buf, uint32_t val, uint32_t digs){
   if(buf == NULL)buf = strlib_buf;
-  for(int i=0; i<8; i++){
+  if(digs > 8)return NULL;
+  val <<= (8-digs)*4;
+  for(int i=0; i<digs; i++){
     uint32_t b = val >> 28;
     if(b < 0xA)buf[i] = b+'0'; else buf[i] = b-0xA+'A';
     val <<= 4;
   }
-  buf[8] = 0;
+  buf[digs] = 0;
   return buf;
 }
+
+#ifdef STRMATCH_FUNC
+
+char* strstr(char *str, char *substr){
+  char *cp = (char *)str;
+  char *s1, *s2;
+  if( !*substr )return((char *)str);
+  while(cp[0]!=0){
+    s1 = cp;
+    s2 = (char *)substr;
+    while( s1[0] && s2[0] && (s1[0]==s2[0]) )s1++, s2++;
+    if(s2[0]==0)return(cp);
+    cp++;
+  }
+  return(NULL);
+}
+
+#endif

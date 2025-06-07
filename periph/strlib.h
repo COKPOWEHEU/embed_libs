@@ -22,15 +22,20 @@ char* fpi32tos(char *buf, int32_t val, uint8_t dot, int8_t field);
 // return value - pointer to LAST char of string
 char* fpi32tos_inplace(char *buf, int32_t val, uint8_t dot, int8_t field);
 
-// uint32_t to hexadecimal; All 8 digits printed
+// uint32_t to hexadecimal
+// digs - number of digits to print
 // return value - pointer to first char of string (buf[0])
-char* u32tohex(char *buf, uint32_t val);
+char* u32tohex(char *buf, uint32_t val, uint32_t digs);
 
 
 // -DMEMFUNC or -DMEMFUNC_DMA=2,3
 #if defined(MEMFUNC) || defined(MEMFUNC_DMA)
 void* memcpy(void *dst, void *src, uint32_t len);
 void *memset(void *s, int c, uint32_t n);
+#endif
+
+#ifdef STRMATCH_FUNC
+char* strstr(char *str, char *substr);
 #endif
 
 #endif
